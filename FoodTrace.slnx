@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="FoodTrace.API/FoodTrace.API.csproj" />
+  <Project Path="FoodTrace.Mobile/FoodTrace.Mobile.csproj">
+    <Deploy />
+  </Project>
+  <Project Path="FoodTrace/FoodTrace.csproj" />
+</Solution>

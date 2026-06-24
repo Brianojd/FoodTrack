@@ -1,0 +1,6 @@
+@FoodTrace.API_HostAddress = http://localhost:5288
+
+GET {{FoodTrace.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
