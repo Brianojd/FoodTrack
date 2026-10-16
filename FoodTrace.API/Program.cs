@@ -1,23 +1,25 @@
-var builder = WebApplication.CreateBuilder(args);
+using FoodTrace.API.Infrastructure.Identity;
+using FoodTrace.API.Infrastructure.DependencyInjection;
+using FoodTrace.API.Infrastructure.Middleware;
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+var builder = WebApplication.CreateBuilder(args.Where(x => x != "--bootstrap").ToArray());
+builder.Services.AgregarFoodTrace(builder.Configuration);
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (args.Contains("--bootstrap"))
 {
-    app.MapOpenApi();
+    // El arranque inicial solo acepta secretos de usuario y variables de entorno, no JSON.
+    var local = new ConfigurationBuilder().AddUserSecrets<Program>(optional: true).AddEnvironmentVariables().Build();
+    await InicializadorIdentidad.EjecutarAsync(app.Services, local);
+    return;
 }
-
+if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseHttpsRedirection();
-
+app.UseMiddleware<ErroresMiddleware>();
+app.UseAuthentication();
+app.UseMiddleware<MembresiaMiddleware>();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
+
+public partial class Program;
