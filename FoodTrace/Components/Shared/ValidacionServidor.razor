@@ -1,0 +1,82 @@
+@implements IDisposable
+
+@code {
+    [CascadingParameter] public EditContext? Contexto { get; set; }
+    [CascadingParameter] public EstadoValidacionServidor? Estado { get; set; }
+    [Parameter, EditorRequired] public Func<MapaCamposServidor> CrearMapa { get; set; } = null!;
+    private EditContext? contexto;
+    private EstadoValidacionServidor? estado;
+    private ValidationMessageStore? mensajes;
+    private MapaCamposServidor? enviado;
+    private readonly HashSet<FieldIdentifier> propios = [];
+    private long ultimaVersion;
+    private bool eliminado;
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(contexto, Contexto) || !ReferenceEquals(estado, Estado))
+        {
+            Desconectar();
+            contexto = Contexto;
+            estado = Estado;
+            if (contexto is null || estado is null) return;
+            mensajes = new(contexto);
+            enviado = CrearMapa();
+            ultimaVersion = estado.Version; // A new model/context never inherits an old response.
+            contexto.OnFieldChanged += CampoEditado;
+            contexto.OnValidationRequested += SolicitarValidacion;
+            estado.Capturar += Capturar;
+            estado.Cambio += RespuestaCambiada;
+        }
+        if (contexto is null || mensajes is null) return;
+        var vivos = CrearMapa();
+        var retirados = propios.Where(x => !vivos.Contiene(x)).ToArray();
+        foreach (var campo in retirados) { mensajes.Clear(campo); propios.Remove(campo); }
+        if (retirados.Length != 0) contexto.NotifyValidationStateChanged();
+    }
+    private void Capturar() => enviado = CrearMapa();
+    private void RespuestaCambiada()
+    {
+        if (eliminado || contexto is null || estado is null || mensajes is null || ultimaVersion == estado.Version) return;
+        ultimaVersion = estado.Version;
+        mensajes.Clear(); propios.Clear();
+        var vinculadas = new HashSet<string>(StringComparer.Ordinal);
+        var vivos = CrearMapa();
+        foreach (var error in estado.Errores)
+        {
+            var campo = enviado is not null && enviado.Resolver(error.Key, out var candidato) && vivos.Contiene(candidato)
+                ? candidato : vivos.General;
+            if (!campo.Equals(vivos.General)) vinculadas.Add(error.Key);
+            mensajes.Add(campo, error.Value);
+            propios.Add(campo);
+        }
+        estado.InformarVinculadas(vinculadas);
+        contexto.NotifyValidationStateChanged();
+    }
+    private void CampoEditado(object? sender, FieldChangedEventArgs args)
+    {
+        if (mensajes is null || contexto is null || !propios.Remove(args.FieldIdentifier)) return;
+        mensajes.Clear(args.FieldIdentifier); // Only our store, never DataAnnotations' messages.
+        contexto.NotifyValidationStateChanged();
+    }
+    private void SolicitarValidacion(object? sender, ValidationRequestedEventArgs args)
+    {
+        estado?.Limpiar(); // Happens during Validate(), before OnValidSubmit can be blocked by stale errors.
+        mensajes?.Clear(); propios.Clear();
+        Capturar();
+        contexto?.NotifyValidationStateChanged();
+    }
+    private void Desconectar()
+    {
+        if (contexto is not null)
+        {
+            contexto.OnFieldChanged -= CampoEditado;
+            contexto.OnValidationRequested -= SolicitarValidacion;
+            mensajes?.Clear();
+            contexto.NotifyValidationStateChanged();
+        }
+        if (estado is not null) { estado.Capturar -= Capturar; estado.Cambio -= RespuestaCambiada; }
+        propios.Clear(); mensajes = null; enviado = null; contexto = null; estado = null;
+    }
+    public void Dispose() { eliminado = true; Desconectar(); }
+}

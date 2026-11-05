@@ -1,0 +1,129 @@
+@if (Edicion is null)
+{
+<MudStack Spacing="3">
+    <MudText Typo="Typo.body2">Seleccioná una presentación. Las asignaciones a necesidades brutas son opcionales: si no seleccionás ninguna, el detalle es una compra directa. Las cantidades oficiales y revisiones se validan en la API.</MudText>
+    @if (!Catalogos.Presentaciones.Any(x => x.ProveedorId == Pedido.ProveedorId))
+    {
+        <EstadoVacio Mensaje="Este proveedor todavía no tiene presentaciones registradas. Solicite su creación a un administrador." />
+        <MudButton Href="/compras?area=proveedores">Ver proveedores y presentaciones</MudButton>
+    }
+    <EditForm @ref="formularioAsignaciones" Model="Modelo" id="@FormId" OnValidSubmit="GuardarValidoAsync">
+        <DataAnnotationsValidator />
+        <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Detalle(Modelo)" />
+        <MudSelect T="Guid" Label="Presentación del proveedor" Value="Modelo.PresentacionId" ValueChanged="SolicitarPresentacion" For="() => Modelo.PresentacionId" Disabled="Bloqueado">
+            @foreach (var presentacion in Catalogos.Presentaciones.Where(x => x.ProveedorId == Pedido.ProveedorId)) { <MudSelectItem T="Guid" Value="presentacion.Id">@presentacion.Nombre · @Catalogos.Productos.FirstOrDefault(x => x.Id == presentacion.ProductoId)?.Nombre</MudSelectItem> }
+        </MudSelect>
+        <ValidationMessage For="() => Modelo.PresentacionId" />
+        <MudNumericField T="decimal" Label="Cantidad entera de presentaciones" @bind-Value="Modelo.CantidadPresentaciones" For="() => Modelo.CantidadPresentaciones" Min="1m" Disabled="Bloqueado" />
+        <ValidationMessage For="() => Modelo.CantidadPresentaciones" />
+        <MudSelect T="Guid" Label="Filtrar necesidades por orden de producción" @bind-Value="Modelo.OrdenFiltroId" Disabled="Bloqueado">
+            <MudSelectItem T="Guid" Value="Guid.Empty">Todas las órdenes</MudSelectItem>
+            @foreach (var orden in Produccion) { <MudSelectItem T="Guid" Value="orden.Id">@orden.Id · @orden.FechaPlanificada.ToString("dd/MM/yyyy")</MudSelectItem> }
+        </MudSelect>
+        @if (Presentacion is { } seleccionada)
+        {
+            <MudText>Contenido base de la presentación actual: @seleccionada.CantidadBase @Catalogos.Productos.FirstOrDefault(x => x.Id == seleccionada.ProductoId)?.UnidadBaseId</MudText>
+            @if (Filtradas.Any())
+            {
+                @foreach (var necesidad in Filtradas)
+                {
+                    <MudPaper @key="necesidad.Id" Outlined="true" Class="pa-3 my-3">
+                        <MudCheckBox T="bool" Value="Modelo.Asignaciones.ContainsKey(necesidad.Id)" ValueChanged="valor => SeleccionarNecesidad(necesidad, valor)" Disabled="Bloqueado" Label="@($"Asignar necesidad {necesidad.Id}")" />
+                        <MudText>Necesidad bruta: @necesidad.CantidadNecesaria @necesidad.UnidadBaseId · asignado a compras: @necesidad.CantidadAsignada @necesidad.UnidadBaseId</MudText>
+                        <MudLink Href="@($"/produccion?area=planificacion&orden={necesidad.OrdenProduccionId}")">Orden @necesidad.OrdenProduccionId</MudLink>
+                        @if (Modelo.Asignaciones.TryGetValue(necesidad.Id, out var asignacion))
+                        {
+                            <ValidationMessage For="() => asignacion.NecesidadId" />
+                            <MudNumericField T="decimal" Label="Cantidad a asignar a este pedido (unidad base)" @bind-Value="asignacion.Cantidad" For="() => asignacion.Cantidad" Min="0m" Disabled="Bloqueado" />
+                            <ValidationMessage For="() => asignacion.Cantidad" />
+                        }
+                    </MudPaper>
+                }
+                <MudText Typo="Typo.body2">Asignaciones seleccionadas: @Modelo.Asignaciones.Count. Se conservan al cambiar el filtro de órdenes.</MudText>
+            }
+            else
+            {
+                <EstadoVacio Mensaje="No hay necesidades guardadas para este producto y filtro. Podés guardar el detalle como compra directa." />
+            }
+        }
+        <ValidationMessage For="() => Modelo.Asignaciones" />
+        <ValidationSummary />
+        @foreach (var error in errores) { <MudAlert Severity="Severity.Error" role="alert">@error</MudAlert> }
+        @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Bloqueado || NecesidadesDesactualizadas)" Class="mt-3">Agregar detalle</MudButton> }
+    </EditForm>
+    @if (presentacionPendiente is not null)
+    {
+        <MudAlert Severity="Severity.Warning" role="alert">Cambiar la presentación descartará la cantidad y las asignaciones de este editor. No se enviará ninguna escritura.</MudAlert>
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+            <MudButton Disabled="Ocupado" OnClick="() => presentacionPendiente = null">Conservar presentación</MudButton>
+            <MudButton Color="Color.Error" Disabled="Ocupado" OnClick="ConfirmarPresentacion">Cambiar y descartar asignaciones</MudButton>
+        </MudStack>
+    }
+    @if (NecesidadesDesactualizadas) { <MudAlert Severity="Severity.Warning">Actualice las necesidades del servidor antes de agregar otro detalle.</MudAlert> }
+</MudStack>
+}
+else
+{
+    <MudStack Spacing="3">
+        <MudText Typo="Typo.body2">Detalle @Edicion.DetalleId. Solo se modifica la cantidad entera de presentaciones; sus asignaciones e importes guardados no se editan aquí.</MudText>
+        <EditForm Model="Edicion" id="@FormId" OnValidSubmit="() => GuardarCantidad.InvokeAsync()">
+            <DataAnnotationsValidator />
+            <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Cantidad(Edicion)" />
+            <MudNumericField T="decimal" Label="Nueva cantidad entera de presentaciones" @bind-Value="Edicion.Cantidad" For="() => Edicion.Cantidad" Disabled="Ocupado" Min="1m" />
+            <ValidationMessage For="() => Edicion.Cantidad" />
+            <ValidationSummary />
+            @if (!AccionesExternas)
+            {
+                <MudButton ButtonType="ButtonType.Submit" Disabled="Ocupado" Color="Color.Primary">Guardar cantidad</MudButton>
+                <MudButton OnClick="CancelarEdicion" Disabled="Ocupado">Descartar edición de cantidad</MudButton>
+            }
+        </EditForm>
+    </MudStack>
+}
+@code {
+    [Parameter, EditorRequired] public ModeloDetallePedido Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public List<NecesidadIngredienteDto> Necesidades { get; set; } = [];
+    [Parameter] public List<OrdenProduccionDto> Produccion { get; set; } = [];
+    [Parameter] public ModeloCantidadPresentaciones? Edicion { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public bool NecesidadesDesactualizadas { get; set; }
+    [Parameter] public EventCallback<Guid> CambiarPresentacion { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public EventCallback GuardarCantidad { get; set; }
+    [Parameter] public EventCallback CancelarEdicion { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+    private Guid? presentacionPendiente;
+    private EditForm? formularioAsignaciones;
+    private bool Bloqueado => Ocupado || presentacionPendiente is not null;
+    private List<string> errores = [];
+    private PresentacionProveedorDto? Presentacion => Catalogos.Presentaciones.FirstOrDefault(x => x.Id == Modelo.PresentacionId && x.ProveedorId == Pedido.ProveedorId);
+    private IEnumerable<NecesidadIngredienteDto> Filtradas => Necesidades.Where(x => x.ProductoId == Presentacion?.ProductoId && (Modelo.OrdenFiltroId == Guid.Empty || x.OrdenProduccionId == Modelo.OrdenFiltroId));
+    private void SeleccionarNecesidad(NecesidadIngredienteDto necesidad, bool valor)
+    {
+        if (Bloqueado) return;
+        if (valor) Modelo.Asignaciones.TryAdd(necesidad.Id, new() { NecesidadId = necesidad.Id, Revision = necesidad.Revision });
+        else Modelo.Asignaciones.Remove(necesidad.Id);
+        formularioAsignaciones?.EditContext?.NotifyFieldChanged(new(Modelo, nameof(Modelo.Asignaciones)));
+    }
+    private void SolicitarPresentacion(Guid id)
+    {
+        if (Bloqueado || id == Modelo.PresentacionId) return;
+        if (Modelo.TieneContenido) presentacionPendiente = id;
+        else AplicarPresentacion(id);
+    }
+    private void ConfirmarPresentacion()
+    {
+        if (Ocupado || presentacionPendiente is not { } id) return;
+        AplicarPresentacion(id);
+        presentacionPendiente = null;
+    }
+    private void AplicarPresentacion(Guid id)
+    {
+        Modelo.PresentacionId = id; Modelo.CantidadPresentaciones = 1; Modelo.Asignaciones.Clear(); errores.Clear();
+        formularioAsignaciones?.EditContext?.NotifyFieldChanged(new(Modelo, nameof(Modelo.Asignaciones)));
+    }
+    private async Task GuardarValidoAsync() { if (Bloqueado) return; errores = Modelo.Validar(Pedido, Catalogos, Necesidades); if (errores.Count == 0) await Guardar.InvokeAsync(); }
+}

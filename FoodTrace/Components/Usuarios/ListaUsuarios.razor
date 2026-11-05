@@ -1,0 +1,46 @@
+@if (Elementos.Count == 0) { <EstadoVacio Mensaje="No hay usuarios disponibles." /> }
+else
+{
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+        <MudTextField T="string" @bind-Value="busqueda" @bind-Value:after="ReiniciarPagina" Label="Buscar en registros cargados" HelperText="Correo, acceso o rol · búsqueda local" Immediate="true" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudSelect T="bool" @bind-Value="descendente" @bind-Value:after="ReiniciarPagina" Label="Ordenar usuarios">
+            <MudSelectItem Value="false">Correo A–Z</MudSelectItem>
+            <MudSelectItem Value="true">Correo Z–A</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="int" @bind-Value="tamanoPagina" @bind-Value:after="ReiniciarPagina" Label="Filas por página">
+            <MudSelectItem Value="10">10</MudSelectItem>
+            <MudSelectItem Value="25">25</MudSelectItem>
+            <MudSelectItem Value="50">50</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+    <MudTable Items="Filtrados" @bind-CurrentPage="pagina" RowsPerPage="tamanoPagina" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Correo electrónico</MudTh><MudTh>Acceso</MudTh><MudTh>Roles</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Correo electrónico">@context.Correo</MudTd>
+            <MudTd DataLabel="Acceso">@(context.Habilitado ? "Habilitado" : "Deshabilitado")</MudTd>
+            <MudTd DataLabel="Roles">@string.Join(", ", context.Roles.Select(NombreRol))</MudTd>
+            <MudTd DataLabel="Acciones">
+                @if (context.Id == UsuarioActualId) { <MudText Typo="Typo.body2">Solicite a otro administrador cambios en su propia membresía.</MudText> }
+                else { <MudButton Disabled="Ocupado" OnClick="() => Editar.InvokeAsync(context)" aria-label="@($"Editar permisos de {context.Correo}")">Editar permisos</MudButton> }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver los usuarios cargados.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+    </MudTable>
+}
+@code {
+    private string busqueda = "";
+    private bool descendente;
+    private int pagina;
+    private int tamanoPagina = 10;
+    private void ReiniciarPagina() => pagina = 0;
+    protected override void OnParametersSet() => pagina = Math.Clamp(pagina, 0, Math.Max(0, (Coincidencias.Count() - 1) / tamanoPagina));
+    private IEnumerable<UsuarioDto> Filtrados => descendente ? Coincidencias.OrderByDescending(x => x.Correo, StringComparer.CurrentCultureIgnoreCase) : Coincidencias.OrderBy(x => x.Correo, StringComparer.CurrentCultureIgnoreCase);
+    private IEnumerable<UsuarioDto> Coincidencias => Elementos.Where(x => $"{x.Correo} {(x.Habilitado ? "Habilitado" : "Deshabilitado")} {string.Join(" ", x.Roles.Select(NombreRol))}".Contains(busqueda?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+    [Parameter] public List<UsuarioDto> Elementos { get; set; } = [];
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public string UsuarioActualId { get; set; } = "";
+    [Parameter] public EventCallback<UsuarioDto> Editar { get; set; }
+    private static string NombreRol(string rol) => rol switch
+    { "admin" => "Administrador", "planner" => "Planificador", "buyer" => "Comprador", "approver" => "Aprobador", _ => "Rol no reconocido" };
+}

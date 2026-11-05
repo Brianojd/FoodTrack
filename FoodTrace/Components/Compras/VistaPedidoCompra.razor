@@ -1,0 +1,81 @@
+<MudPaper Outlined="true" Class="pa-4 my-4">
+    <MudText Typo="Typo.h5" HtmlTag="h3">Pedido @Pedido.Id</MudText>
+    @if (Pedido.VistaParcial)
+    {
+        <MudAlert Severity="Severity.Info" Class="my-2">Vista parcial: solo se muestran las asignaciones vinculadas a tus necesidades.</MudAlert>
+    }
+    <MudText>Estado: @EstadoCompras.NombreEstado(Pedido.Estado)</MudText>
+    <MudText>Proveedor: @(Catalogos.Proveedores.FirstOrDefault(x => x.Id == Pedido.ProveedorId)?.Nombre ?? Pedido.ProveedorId.ToString())</MudText>
+    <MudText>Creado por ID @Pedido.CreadoPorId · @Pedido.FechaCreacion.ToString("dd/MM/yyyy HH:mm zzz")</MudText>
+    <MudText>Enviado por ID @(Pedido.EnviadoPorId ?? "—") · @(Pedido.FechaEnvio?.ToString("dd/MM/yyyy HH:mm zzz") ?? "Sin envío")</MudText>
+    <MudText>Decidido por ID @(Pedido.DecididoPorId ?? "—") · @(Pedido.FechaDecision?.ToString("dd/MM/yyyy HH:mm zzz") ?? "Sin decisión")</MudText>
+    @if (!string.IsNullOrEmpty(Pedido.MotivoDecision)) { <MudText>Motivo guardado: @Pedido.MotivoDecision</MudText> }
+    @if (Pedido.Detalles.Count == 0) { <EstadoVacio Mensaje="El pedido todavía no tiene detalles." /> }
+    else
+    {
+        <MudTable Items="Pedido.Detalles" Breakpoint="Breakpoint.Sm" Elevation="0">
+            <HeaderContent><MudTh>Presentación guardada</MudTh><MudTh Class="text-right">Presentaciones</MudTh><MudTh Class="text-right">Cantidad pedida</MudTh><MudTh Class="text-right">Necesidad bruta cubierta</MudTh><MudTh>Asignaciones e historial</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+            <RowTemplate>
+                @{
+                    var cantidadesOcultas = Pedido.VistaParcial && context.CantidadPedida == 0m;
+                }
+                <MudTd DataLabel="Presentación guardada">
+                    @context.NombrePresentacion
+                    @if (!cantidadesOcultas)
+                    {
+                        <span> · @context.CantidadBasePresentacion @context.UnidadBaseId por presentación</span>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Presentaciones" Class="text-right">@(cantidadesOcultas ? "—" : context.CantidadPresentaciones.ToString("G29"))</MudTd>
+                <MudTd DataLabel="Cantidad pedida" Class="text-right">@(cantidadesOcultas ? "—" : context.CantidadPedida.ToString("G29")) @context.UnidadBaseId</MudTd>
+                <MudTd DataLabel="Necesidad bruta cubierta" Class="text-right">@(cantidadesOcultas ? "—" : context.NecesidadBruta.ToString("G29")) @context.UnidadBaseId</MudTd>
+                <MudTd DataLabel="Asignaciones e historial">
+                    @foreach (var asignacion in context.Asignaciones)
+                    {
+                        <MudText Typo="Typo.body2">@asignacion.CantidadAsignada @context.UnidadBaseId · @(asignacion.Liberada ? "Liberada · historial de solo lectura" : "Asignación activa a compras")</MudText>
+                        @if (Necesidades.FirstOrDefault(x => x.Id == asignacion.NecesidadIngredienteId) is { } necesidad) { <MudLink Href="@($"/produccion?area=planificacion&orden={necesidad.OrdenProduccionId}")">Orden @necesidad.OrdenProduccionId</MudLink> }
+                        else { <MudText Typo="Typo.caption">Necesidad @asignacion.NecesidadIngredienteId</MudText> }
+                    }
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    @if (PuedeEditar && Pedido.Estado == 0)
+                    {
+                        <MudButton @ref="botonesEditar[context.Id]" Disabled="Ocupado" OnClick="() => EjecutarConFocoAsync(context, false)" aria-label="@($"Cambiar cantidad de {context.NombrePresentacion}")">Cambiar cantidad</MudButton>
+                        <MudButton @ref="botonesRetirar[context.Id]" Disabled="Ocupado" Color="Color.Error" OnClick="() => EjecutarConFocoAsync(context, true)" aria-label="@($"Retirar detalle {context.NombrePresentacion}")">Retirar detalle</MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+        @if (Pedido.VistaParcial && Pedido.Detalles.Any(d => d.CantidadPedida == 0m))
+        {
+            <MudText Typo="Typo.caption" Class="mt-2">Cantidades agregadas no disponibles en líneas compartidas con otros planificadores.</MudText>
+        }
+    }
+</MudPaper>
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public List<NecesidadIngredienteDto> Necesidades { get; set; } = [];
+    [Parameter] public bool PuedeEditar { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback<DetallePedidoCompraDto> Editar { get; set; }
+    [Parameter] public EventCallback<DetallePedidoCompraDto> Retirar { get; set; }
+    [Parameter] public EventCallback FocoAlternativo { get; set; }
+    private readonly Dictionary<Guid, MudButton> botonesEditar = [], botonesRetirar = [];
+    private (Guid Id, bool Retirar)? focoPendiente;
+    private async Task EjecutarConFocoAsync(DetallePedidoCompraDto detalle, bool retirar)
+    {
+        if (Ocupado || !PuedeEditar || InstantaneaPedido.DetalleActivo(Pedido, detalle.Id) is null) return;
+        if (retirar) await Retirar.InvokeAsync(detalle); else await Editar.InvokeAsync(detalle);
+        focoPendiente = (detalle.Id, retirar);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Ocupado || focoPendiente is not { } destino) return;
+        focoPendiente = null;
+        var botones = destino.Retirar ? botonesRetirar : botonesEditar;
+        if (PuedeEditar && InstantaneaPedido.DetalleActivo(Pedido, destino.Id) is not null && botones.TryGetValue(destino.Id, out var boton))
+            await boton.FocusAsync();
+        else await FocoAlternativo.InvokeAsync();
+    }
+}

@@ -1,5 +1,14 @@
+@font-face {
+    font-family: 'Inter';
+    src: url('fonts/InterVariable.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: var(--foodtrace-fondo);
 }
 
 a, .btn-link {
@@ -21,7 +30,8 @@ a, .btn-link {
 }
 
 h1:focus {
-    outline: none;
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: .2rem;
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -33,7 +43,11 @@ h1:focus {
 }
 
 .validation-message {
-    color: #e50000;
+    color: var(--mud-palette-error);
+}
+
+.mud-nav-link.active:not(.mud-nav-link-disabled) {
+    background-color: var(--foodtrace-seleccion);
 }
 
 .blazor-error-boundary {
@@ -43,7 +57,7 @@ h1:focus {
 }
 
     .blazor-error-boundary::after {
-        content: "An error has occurred."
+        content: "Ocurrió un error inesperado."
     }
 
 .darker-border-checkbox.form-check-input {

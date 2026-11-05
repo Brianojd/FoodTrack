@@ -1,0 +1,17 @@
+.acceso-formulario ::deep .acceso-titulo {
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.acceso-formulario ::deep .acceso-ayuda {
+    color: var(--mud-palette-text-secondary);
+}
+
+.acceso-formulario ::deep .acceso-enviar {
+    height: 48px;
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: none;
+    box-shadow: 0 2px 4px var(--foodtrace-sombra);
+}

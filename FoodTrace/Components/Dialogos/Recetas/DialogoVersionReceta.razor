@@ -1,0 +1,131 @@
+@inherits DialogoEdicionBase
+@inject IServicioRecetas Api
+@inject ICatalogosFoodTrace CatalogosApi
+@inject IDialogService Dialogos
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(!ocupandoCatalogo && modelo.Validar(CatalogoActual).Count == 0 && Version?.Publicada != true)">
+    @if (Version is not null)
+    {
+        <MudText Typo="Typo.body2" Class="mb-3">Borrador · versión @Version.NumeroVersion · familia @Version.FamiliaRecetaId. Se enviará la revisión original de esta edición; un conflicto no la sustituye automáticamente.</MudText>
+    }
+    @if (avisoCatalogo.Length != 0) { <MudAlert Severity="Severity.Info" role="status" Class="mb-2">@avisoCatalogo</MudAlert> }
+    <FormularioVersionReceta @ref="formulario" Modelo="modelo" Catalogos="CatalogoActual" Version="Version" PuedeEditar="true" PuedeAdministrar="@(Sesion?.TieneRol("admin") == true)" Ocupado="@(Bloqueado || ocupandoCatalogo)" Guardar="GuardarAsync" Cambiado="CambioFormulario" FormId="@FormId" AccionesExternas="true" CrearProducto="CrearProductoAsync" ActualizarCatalogo="ActualizarCatalogoAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public ModeloVersionReceta Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public VersionRecetaDto? Version { get; set; }
+    [Parameter] public EventCallback<CatalogosDto> CatalogoCambiado { get; set; }
+    private ModeloVersionReceta modelo = new(), inicial = new();
+    private CatalogosDto? catalogosLocal;
+    private CatalogosDto CatalogoActual => catalogosLocal ?? Catalogos;
+    private readonly List<ProductoDto> productosConfirmados = [];
+    private bool ocupandoCatalogo;
+    private string avisoCatalogo = "";
+    private IDialogReference? productoActivo;
+    private FormularioVersionReceta? formulario;
+    private Guid? versionId;
+    private Guid revisionOriginal;
+    protected override string RolRequerido => "planner";
+    protected override bool TieneCambios => !modelo.EquivaleA(inicial);
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        modelo = Modelo.Copiar();
+        if (Version is { UnidadRendimientoId: null } && modelo.UnidadRendimientoId.Length == 0)
+            modelo.UnidadRendimientoId = Catalogos.Productos.FirstOrDefault(x => x.Id == modelo.ProductoResultadoId)?.UnidadBaseId ?? "";
+        catalogosLocal = CopiarCatalogo(Catalogos);
+        inicial = modelo.Copiar();
+        versionId = Version?.Id;
+        revisionOriginal = Version?.Revision ?? Guid.Empty;
+    }
+    private void CambioFormulario() => StateHasChanged();
+    private static CatalogosDto CopiarCatalogo(CatalogosDto datos) => new()
+    {
+        Empresa = datos.Empresa, UnidadesMedida = [.. datos.UnidadesMedida], Establecimientos = [.. datos.Establecimientos],
+        Productos = [.. datos.Productos], Proveedores = [.. datos.Proveedores], Presentaciones = [.. datos.Presentaciones]
+    };
+    private async Task PropagarCatalogoAsync() { if (Vigente) await CatalogoCambiado.InvokeAsync(CatalogoActual); }
+    private async Task ConsultarCatalogoAsync()
+    {
+        var datos = await CatalogosApi.ObtenerCatalogosAsync(Cancelacion);
+        if (!Vigente) return;
+        catalogosLocal = CopiarCatalogo(datos);
+        foreach (var producto in productosConfirmados)
+            if (!catalogosLocal.Productos.Any(x => x.Id == producto.Id)) catalogosLocal.Productos.Add(producto);
+        await PropagarCatalogoAsync();
+    }
+    private async Task ActualizarCatalogoAsync()
+    {
+        if (Bloqueado || ocupandoCatalogo || !Vigente) return;
+        ocupandoCatalogo = true;
+        try { await ConsultarCatalogoAsync(); if (Vigente) avisoCatalogo = "Catálogo actualizado. Se conservaron todos los valores de la receta."; }
+        catch (Exception ex) when (ex is ExcepcionApi or OperationCanceledException or HttpRequestException)
+        { if (Vigente) avisoCatalogo = ex is ExcepcionApi { Estado: System.Net.HttpStatusCode.Forbidden } ? "No tiene permiso para consultar el catálogo. La receta se conserva." : "No se pudo actualizar el catálogo. La receta y los últimos productos confirmados se conservan."; }
+        finally { ocupandoCatalogo = false; }
+    }
+    private async Task CrearProductoAsync(Guid? claveFila)
+    {
+        if (Bloqueado || ocupandoCatalogo || !Vigente || !Sesion.TieneRol("admin")) return;
+        if (claveFila is { } clave && !modelo.Ingredientes.Any(x => x.Clave == clave)) return;
+        ocupandoCatalogo = true;
+        var confirmado = false;
+        try
+        {
+            var parametros = new DialogParameters<DialogoCrearProducto> { { x => x.Unidades, CatalogoActual.UnidadesMedida } };
+            productoActivo = await Dialogos.ShowAsync<DialogoCrearProducto>("Crear producto para esta receta", parametros,
+                new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Small, CloseOnNavigation = true, BackdropClick = true, CloseOnEscapeKey = false });
+            if (!Vigente) productoActivo.Close(DialogResult.Cancel());
+            var resultado = await productoActivo.Result;
+            if (!Vigente || resultado is not { Canceled: false, Data: ProductoDto producto }) return;
+            confirmado = true;
+            await AceptarProductoAsync(producto, claveFila);
+            await ConsultarCatalogoAsync();
+            if (Vigente) avisoCatalogo = "Producto creado y seleccionado. El formulario de receta se conserva; crear un producto no crea existencias.";
+        }
+        catch (Exception)
+        {
+            if (Vigente) avisoCatalogo = confirmado
+                ? "El producto ya se creó y se incorporó al formulario. No se pudo actualizar todo el catálogo; use Actualizar catálogo, no vuelva a crear el producto."
+                : "No se confirmó la creación de un producto. La receta se conserva. Consulte el catálogo antes de repetir la operación.";
+        }
+        finally { productoActivo = null; ocupandoCatalogo = false; }
+    }
+    private async Task AceptarProductoAsync(ProductoDto producto, Guid? claveFila)
+    {
+        if (!Vigente) return;
+        productosConfirmados.Add(producto);
+        catalogosLocal = CopiarCatalogo(CatalogoActual);
+        catalogosLocal.Productos = catalogosLocal.Productos.Where(x => x.Id != producto.Id).Append(producto).ToList();
+        if (claveFila is { } clave)
+        {
+            var fila = modelo.Ingredientes.FirstOrDefault(x => x.Clave == clave);
+            if (fila is not null) { fila.ProductoId = producto.Id; fila.UnidadMedidaId = producto.UnidadBaseId; }
+        }
+        else { modelo.ProductoResultadoId = producto.Id; modelo.UnidadRendimientoId = producto.UnidadBaseId; }
+        if (formulario is not null) await formulario.ProductoCreadoAsync(claveFila);
+        await PropagarCatalogoAsync();
+    }
+    private Task GuardarAsync()
+    {
+        if (Bloqueado || ocupandoCatalogo) return Task.CompletedTask;
+        if (Version?.Publicada == true) { MostrarError("Una versión publicada es de solo lectura. Cree una nueva versión desde la operación correspondiente."); return Task.CompletedTask; }
+        var errores = modelo.Validar(CatalogoActual);
+        if (errores.Count != 0) { MostrarError(string.Join(" ", errores)); return Task.CompletedTask; }
+        if (versionId is { } id)
+        {
+            var entrada = modelo.ParaActualizar(revisionOriginal);
+            Validacion.CapturarEnvio();
+            return GuardarEnServidorAsync(ct => Api.ActualizarRecetaAsync(id, entrada, ct));
+        }
+        var nueva = modelo.ParaCrear();
+        Validacion.CapturarEnvio();
+        return GuardarEnServidorAsync(ct => Api.CrearRecetaAsync(nueva, ct));
+    }
+    protected override void LimpiarDatosPrivados()
+    {
+        productoActivo?.Close(DialogResult.Cancel());
+        modelo = new(); inicial = new(); catalogosLocal = null; productosConfirmados.Clear(); avisoCatalogo = "";
+    }
+}

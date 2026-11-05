@@ -1,0 +1,29 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+@using System.ComponentModel.DataAnnotations
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(pedido.Estado == 1)">
+    <VistaPedidoCompra Pedido="pedido" Catalogos="Catalogos" />
+    <PanelAprobacionCompra Pedido="pedido" Modelo="modelo" PuedeAprobar="true" Ocupado="Bloqueado" MostrarFormularioRechazo="true" Rechazar="RevisarAsync" FormId="FormId" AccionesExternas="true" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public string MotivoInicial { get; set; } = "";
+    private PedidoCompraDto pedido = new();
+    private readonly ModeloRechazoCompra modelo = new();
+    private string motivoInicial = "";
+    protected override string RolRequerido => "admin";
+    protected override bool TieneCambios => modelo.Motivo != motivoInicial;
+    protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); motivoInicial = MotivoInicial; modelo.Motivo = motivoInicial; }
+    private Task RevisarAsync()
+    {
+        if (Bloqueado || pedido.Estado != 1) return Task.CompletedTask;
+        if (!Validator.TryValidateObject(modelo, new ValidationContext(modelo), [], true)) { MostrarError("Ingrese un motivo de rechazo de hasta 500 caracteres."); return Task.CompletedTask; }
+        var entrada = new RevisionDto { Revision = pedido.Revision, Motivo = modelo.Motivo.Trim() };
+        return RevisarGuardadoAsync(ct => Api.RechazarPedidoCompraAsync(pedido.Id, entrada, ct),
+            "Se rechazará este pedido enviado. La API liberará sus asignaciones, conservará historial y motivo, y el pedido quedará de solo lectura. Confirme el rechazo sin cerrar este diálogo.");
+    }
+    protected override void LimpiarDatosPrivados() { modelo.Motivo = ""; motivoInicial = ""; }
+}

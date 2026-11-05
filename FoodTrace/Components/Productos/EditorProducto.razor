@@ -1,0 +1,22 @@
+<MudStack Spacing="2">
+    <EditForm Model="Modelo" id="@FormId" OnValidSubmit="() => Guardar.InvokeAsync()">
+        <DataAnnotationsValidator />
+        <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Producto(Modelo)" />
+        <MudTextField Label="Nombre del producto" @bind-Value="Modelo.Nombre" For="() => Modelo.Nombre" Disabled="Ocupado" />
+        <ValidationMessage For="() => Modelo.Nombre" />
+        <MudSelect T="string" Label="Unidad base (no se podrá cambiar)" @bind-Value="Modelo.UnidadBaseId" For="() => Modelo.UnidadBaseId" Disabled="Ocupado">
+            @foreach (var unidad in Unidades) { <MudSelectItem T="string" Value="@unidad.Id">@unidad.Id · @unidad.Dimension</MudSelectItem> }
+        </MudSelect>
+        <ValidationMessage For="() => Modelo.UnidadBaseId" />
+        <ValidationSummary />
+        @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Ocupado" Class="mt-3">Crear producto</MudButton> }
+    </EditForm>
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public FormularioProducto Modelo { get; set; } = new();
+    [Parameter] public List<UnidadMedidaDto> Unidades { get; set; } = [];
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+}

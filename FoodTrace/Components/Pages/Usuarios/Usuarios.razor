@@ -1,0 +1,64 @@
+@page "/usuarios"
+@inherits PaginaAdministrativa
+@inject IUsuariosFoodTrace UsuariosApi
+
+<PageTitle>Usuarios y permisos · FoodTrace</PageTitle>
+<EncabezadoPagina Titulo="Usuarios y permisos" Descripcion="Administre las membresías de su empresa. No se muestran datos internos de autenticación." />
+@if (!Sesion.TieneRol("admin"))
+{
+    <MudAlert Severity="Severity.Warning" role="alert">Su cuenta no tiene permiso para administrar usuarios.</MudAlert>
+}
+else
+{
+    <MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+    @if (Ocupado && usuarios is null) { <EstadoCarga /> }
+    @if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+    <MudPaper Class="pa-6" Outlined="true" Elevation="0">
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CrearAsync" Disabled="@(Ocupado || usuarios is null)" StartIcon="@Icons.Material.Filled.Add">Crear usuario</MudButton>
+        <MudButton OnClick="ActualizarAsync" Disabled="Ocupado" StartIcon="@Icons.Material.Filled.Refresh">Actualizar lista</MudButton>
+    </MudStack>
+    @if (usuarios is not null)
+    {
+        <ListaUsuarios Elementos="usuarios" UsuarioActualId="@(Sesion.Identidad?.Id ?? "")" Editar="SeleccionarAsync" Ocupado="Ocupado" />
+    }
+    </MudPaper>
+}
+
+@code {
+    private List<UsuarioDto>? usuarios;
+    protected override Task ActualizarAsync() => !Sesion.TieneRol("admin") ? Task.CompletedTask : EjecutarAsync(async ct =>
+    {
+        var actualizados = await UsuariosApi.ObtenerUsuariosAsync(ct);
+        if (Vigente) usuarios = actualizados;
+    }, esConsulta: true);
+
+    private Task CrearAsync()
+    {
+        if (usuarios is null) return Task.CompletedTask;
+        // Passwords are entered afresh in the private dialog, never prefilled from cached drafts.
+        Formularios.UsuarioNuevo.Contrasena = "";
+        var modelo = new FormularioUsuario { Correo = Formularios.UsuarioNuevo.Correo, Roles = [.. Formularios.UsuarioNuevo.Roles] };
+        var parametros = new DialogParameters<DialogoCrearUsuario> { { x => x.Modelo, modelo } };
+        return AbrirEditorAsync<DialogoCrearUsuario, UsuarioDto>("Crear usuario", parametros, creado =>
+        {
+            usuarios.Add(creado);
+            Formularios.UsuarioNuevo = new();
+        });
+    }
+
+    private Task SeleccionarAsync(UsuarioDto usuario)
+    {
+        if (usuarios is null || Ocupado || usuario.Id == Sesion.Identidad?.Id) return Task.CompletedTask;
+        var modelo = new FormularioMembresia { Id = usuario.Id, Correo = usuario.Correo, Habilitado = usuario.Habilitado, Roles = [.. usuario.Roles] };
+        var parametros = new DialogParameters<DialogoEditarMembresia> { { x => x.Modelo, modelo } };
+        return AbrirEditorAsync<DialogoEditarMembresia, UsuarioDto>("Editar permisos de usuario", parametros, actualizado =>
+        {
+            var indice = usuarios.FindIndex(x => x.Id == actualizado.Id);
+            if (indice >= 0) usuarios[indice] = actualizado;
+            Formularios.Membresia = null;
+        });
+    }
+
+    public override void Dispose() { Formularios.UsuarioNuevo.Contrasena = ""; base.Dispose(); }
+}

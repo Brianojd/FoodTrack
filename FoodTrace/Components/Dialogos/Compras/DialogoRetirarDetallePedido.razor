@@ -1,0 +1,23 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" UsarFormulario="false" EtiquetaGuardar="Retirar detalle" Guardar="RetirarAsync" GuardarDisponible="@(InstantaneaPedido.DetalleActivo(pedido, detalleId) is not null)">
+    <MudAlert Severity="Severity.Warning" Class="mb-3">Se retirará el detalle @detalleId del pedido @pedido.Id. La API liberará sus asignaciones a necesidades y conservará el detalle y las cantidades guardadas como historial. No se elimina ni se reserva stock.</MudAlert>
+    <VistaPedidoCompra Pedido="pedido" Catalogos="Catalogos" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public Guid DetalleId { get; set; }
+    private PedidoCompraDto pedido = new();
+    private Guid detalleId;
+    protected override string RolRequerido => "buyer";
+    protected override bool TieneCambios => false;
+    protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); detalleId = DetalleId; }
+    private Task RetirarAsync()
+    {
+        if (InstantaneaPedido.DetalleActivo(pedido, detalleId) is null) { MostrarError("Este detalle no pertenece al borrador original o ya está retirado."); return Task.CompletedTask; }
+        return GuardarEnServidorAsync(ct => Api.RetirarDetalleCompraAsync(pedido.Id, detalleId, new RevisionDto { Revision = pedido.Revision }, ct));
+    }
+}

@@ -1,0 +1,11 @@
+.foodtrace-background {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow-x: clip;
+    background: radial-gradient(ellipse 32% 45% at 100% 16%, var(--foodtrace-bruma-verde), transparent),
+        radial-gradient(ellipse 28% 40% at 100% 62%, var(--foodtrace-bruma-petroleo), transparent),
+        radial-gradient(ellipse 30% 28% at 100% 100%, var(--foodtrace-bruma-dorada), transparent),
+        var(--foodtrace-fondo);
+}

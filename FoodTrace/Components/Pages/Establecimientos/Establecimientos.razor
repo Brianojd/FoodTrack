@@ -1,0 +1,227 @@
+@page "/establecimientos"
+@inherits PaginaAdministrativa
+
+@if (!EnContenedor)
+{
+    <RedireccionModulo />
+}
+else
+{
+    <div class="establecimientos-vista">
+
+        <MensajeError Mensaje="@Error"
+                      Reintentar="ActualizarAsync"
+                      Ocupado="Ocupado" />
+
+        @if (Ocupado && Datos is null)
+        {
+            <EstadoCarga />
+        }
+
+        @if (!string.IsNullOrEmpty(Aviso))
+        {
+            <MudAlert Severity="Severity.Success"
+                      role="status">
+                @Aviso
+            </MudAlert>
+        }
+
+        <MudPaper Class="establecimientos-tarjeta"
+                  Outlined="true"
+                  Elevation="0">
+
+            <div class="establecimientos-barra">
+
+                <div class="establecimientos-empresa">
+                    @if (Datos is not null)
+                    {
+                        <span class="establecimientos-empresa-nombre">
+                            <span class="establecimientos-etiqueta">
+                                Empresa:
+                            </span>
+                            @Datos.Empresa.Nombre
+                        </span>
+
+                        @if (Sesion.TieneRol("admin"))
+                        {
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Primary"
+                                       OnClick="RenombrarAsync"
+                                       Disabled="Ocupado">
+                                Editar nombre
+                            </MudButton>
+                        }
+                    }
+                </div>
+
+                <div class="establecimientos-acciones">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               OnClick="ActualizarAsync"
+                               Disabled="Ocupado"
+                               StartIcon="@Icons.Material.Filled.Refresh">
+                        Actualizar
+                    </MudButton>
+
+                    @if (Sesion.TieneRol("admin"))
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   OnClick="CrearAsync"
+                                   Disabled="@(Ocupado || Datos is null)"
+                                   StartIcon="@Icons.Material.Filled.Add">
+                            Crear establecimiento
+                        </MudButton>
+                    }
+                </div>
+
+            </div>
+
+            @if (Datos is not null)
+            {
+                <div class="establecimientos-listado">
+                    <ListaEstablecimientos Elementos="Datos.Establecimientos" />
+                </div>
+            }
+
+        </MudPaper>
+    </div>
+}
+
+<style>
+    .establecimientos-vista {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .establecimientos-tarjeta {
+        padding: 20px 24px 8px;
+        border-radius: 12px;
+        min-width: 0;
+    }
+
+    .establecimientos-barra {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px 24px;
+        margin-bottom: 16px;
+    }
+
+    .establecimientos-empresa {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        min-width: 0;
+    }
+
+    .establecimientos-empresa-nombre {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--mud-palette-text-primary);
+        overflow-wrap: anywhere;
+    }
+
+    .establecimientos-etiqueta {
+        font-weight: 400;
+        color: var(--mud-palette-text-secondary);
+        margin-right: 4px;
+    }
+
+    .establecimientos-acciones {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .establecimientos-listado {
+        min-width: 0;
+    }
+
+    @@media (max-width: 600px) {
+        .establecimientos-tarjeta {
+            padding: 16px 12px 4px;
+        }
+
+        .establecimientos-barra {
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .establecimientos-empresa {
+            width: 100%;
+        }
+
+        .establecimientos-acciones {
+            width: 100%;
+            gap: 4px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public bool EnContenedor { get; set; }
+
+    protected override Task OnInitializedAsync() =>
+        EnContenedor
+            ? base.OnInitializedAsync()
+            : Task.CompletedTask;
+
+    private Task CrearAsync()
+    {
+        if (Datos is null)
+            return Task.CompletedTask;
+
+        var parametros =
+            new DialogParameters<DialogoCrearEstablecimiento>
+            {
+                {
+                    x => x.Modelo,
+                    new FormularioNombre
+                    {
+                        Nombre = Formularios.Establecimiento.Nombre
+                    }
+                }
+            };
+
+        return AbrirEditorAsync<DialogoCrearEstablecimiento, NombreDto>(
+            "Crear establecimiento",
+            parametros,
+            creado =>
+            {
+                Datos.Establecimientos.Add(creado);
+                Formularios.Establecimiento = new();
+            });
+    }
+
+    private Task RenombrarAsync()
+    {
+        if (Datos is null)
+            return Task.CompletedTask;
+
+        var parametros =
+            new DialogParameters<DialogoRenombrarEmpresa>
+            {
+                {
+                    x => x.Modelo,
+                    new FormularioNombre
+                    {
+                        Nombre = Datos.Empresa.Nombre
+                    }
+                }
+            };
+
+        return AbrirEditorAsync<DialogoRenombrarEmpresa, NombreDto>(
+            "Editar nombre de empresa",
+            parametros,
+            actualizada => Datos.Empresa = actualizada);
+    }
+}

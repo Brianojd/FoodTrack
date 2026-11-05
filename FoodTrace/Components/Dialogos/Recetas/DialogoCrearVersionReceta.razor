@@ -1,0 +1,19 @@
+@inherits DialogoEdicionBase
+@inject IServicioRecetas Api
+
+<MarcoDialogoEdicion Control="this" UsarFormulario="false" EtiquetaGuardar="Crear versión" Guardar="CrearAsync" GuardarDisponible="Version.Publicada">
+    <MudAlert Severity="Severity.Info" Class="mb-4">Al confirmar se solicitará a la API un nuevo borrador a partir de esta versión publicada. La publicada no se modifica. La API asigna la familia, el número y la revisión del nuevo borrador.</MudAlert>
+    <VistaVersionReceta Version="Version" Catalogos="Catalogos" />
+    <MudText Typo="Typo.body2">Después podrá editar el borrador mediante su botón Editar. No se abrirá otro diálogo ni se enviará una segunda escritura automáticamente.</MudText>
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public VersionRecetaDto Version { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    private Guid id, revisionOriginal;
+    protected override string RolRequerido => "planner";
+    protected override bool TieneCambios => false;
+    protected override void OnInitialized() { base.OnInitialized(); id = Version.Id; revisionOriginal = Version.Revision; }
+    private Task CrearAsync() => !Version.Publicada ? Task.CompletedTask
+        : GuardarEnServidorAsync(ct => Api.CrearVersionRecetaAsync(id, new RevisionDto { Revision = revisionOriginal }, ct));
+}

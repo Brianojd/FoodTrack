@@ -1,0 +1,49 @@
+.acceso {
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
+    isolation: isolate;
+    padding: 72px 24px 40px;
+}
+
+.acceso-tarjeta {
+    position: relative;
+    box-sizing: border-box;
+    max-width: 512px;
+    margin: 0 auto;
+    padding: 32px;
+    border: 1px solid var(--foodtrace-borde);
+    border-radius: 8px;
+    background: var(--mud-palette-surface, #fff);
+    box-shadow: 0 12px 40px var(--foodtrace-sombra);
+    animation: entrada-acceso 400ms ease-out;
+}
+
+.acceso ::deep .acceso-nombre {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.acceso ::deep .acceso-lema {
+    font-size: 14px;
+    color: var(--mud-palette-text-secondary);
+}
+
+@keyframes entrada-acceso {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 600px) {
+    .acceso { padding: 32px 16px; }
+    .acceso-tarjeta { padding: 24px; }
+}
+
+@media (max-height: 600px) {
+    .acceso { padding-top: 32px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .acceso-tarjeta { animation: none; transform: none; opacity: 1; }
+}

@@ -1,0 +1,82 @@
+@page "/catalogos"
+@inject NavigationManager Navegacion
+
+<PageTitle>Catálogos · FoodTrace</PageTitle>
+
+<EncabezadoPagina Titulo="Catálogos"
+                  Descripcion="Productos y establecimientos de su empresa." />
+
+<MudTabs ActivePanelIndex="indiceArea"
+         ActivePanelIndexChanged="CambiarArea"
+         KeepPanelsAlive="true"
+         LazyLoadPanels="true"
+         TabPanelsClass="pt-4"
+         Elevation="0"
+         Rounded="true">
+
+    <MudTabPanel Text="Productos">
+        <FoodTrace.Components.Pages.Productos.Productos EnContenedor="true" />
+    </MudTabPanel>
+
+    <MudTabPanel Text="Establecimientos">
+        <FoodTrace.Components.Pages.Establecimientos.Establecimientos EnContenedor="true" />
+    </MudTabPanel>
+
+</MudTabs>
+
+@code {
+    [CascadingParameter]
+    public EstadoNavegacion? EstadoNav { get; set; }
+
+    [SupplyParameterFromQuery(Name = "area")]
+    public string? Area { get; set; }
+
+    private static readonly string[] AreasVisibles =
+    [
+        "productos",
+        "establecimientos"
+    ];
+
+    private int indiceArea;
+
+    protected override void OnParametersSet()
+    {
+        var areaSolicitada =
+            EstadoNav?.ResolverArea("catalogos", Area)
+            ?? Area;
+
+        var indice = Array.IndexOf(AreasVisibles, areaSolicitada);
+
+        indiceArea = indice >= 0 ? indice : 0;
+
+        var areaActual = AreasVisibles[indiceArea];
+
+        if (Area != areaActual)
+        {
+            Navegacion.NavigateTo(
+                EstadoNavegacion.RutaArea(
+                    Navegacion.Uri,
+                    "catalogos",
+                    areaActual),
+                replace: true);
+        }
+    }
+
+    private void CambiarArea(int indice)
+    {
+        if (indice < 0 ||
+            indice >= AreasVisibles.Length ||
+            indiceArea == indice)
+        {
+            return;
+        }
+
+        indiceArea = indice;
+
+        Navegacion.NavigateTo(
+            EstadoNavegacion.RutaArea(
+                Navegacion.Uri,
+                "catalogos",
+                AreasVisibles[indice]));
+    }
+}

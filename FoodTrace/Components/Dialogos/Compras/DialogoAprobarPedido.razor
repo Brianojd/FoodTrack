@@ -1,0 +1,19 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" UsarFormulario="false" EtiquetaGuardar="Aprobar pedido" Guardar="AprobarAsync" GuardarDisponible="@(pedido.Estado == 1)">
+    <MudAlert Severity="Severity.Warning" Class="mb-3">Se aprobará la revisión enviada que se muestra a continuación. El pedido aprobado quedará de solo lectura y no podrá editarse mediante este flujo.</MudAlert>
+    <PanelAprobacionCompra Pedido="pedido" PuedeAprobar="true" Ocupado="Bloqueado" />
+    <VistaPedidoCompra Pedido="pedido" Catalogos="Catalogos" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    private PedidoCompraDto pedido = new();
+    protected override string RolRequerido => "admin";
+    protected override bool TieneCambios => false;
+    protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); }
+    private Task AprobarAsync() => pedido.Estado != 1 ? Task.CompletedTask
+        : GuardarEnServidorAsync(ct => Api.AprobarPedidoCompraAsync(pedido.Id, new RevisionDto { Revision = pedido.Revision }, ct));
+}

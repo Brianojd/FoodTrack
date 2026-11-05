@@ -1,0 +1,51 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(!requiereActualizar && pedido.Estado == 0 && Catalogos.Presentaciones.Any(x => x.ProveedorId == pedido.ProveedorId))">
+    <MudText Typo="Typo.body2" Class="mb-3">Pedido @pedido.Id. Se conservarán su revisión y las revisiones de necesidades de esta apertura. No representa reserva de inventario.</MudText>
+    <EditorDetallesPedido Modelo="modelo" Pedido="pedido" Catalogos="Catalogos" Necesidades="necesidades" Produccion="produccion" Ocupado="@(Bloqueado || requiereActualizar)" NecesidadesDesactualizadas="requiereActualizar" Guardar="GuardarAsync" FormId="FormId" AccionesExternas="true" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public List<NecesidadIngredienteDto> Necesidades { get; set; } = [];
+    [Parameter] public List<OrdenProduccionDto> Produccion { get; set; } = [];
+    [Parameter] public bool NecesidadesDesactualizadas { get; set; }
+    [Parameter] public EventCallback NecesidadesObsoletas { get; set; }
+    [Parameter] public ModeloDetallePedido ModeloInicial { get; set; } = new();
+    private PedidoCompraDto pedido = new();
+    private List<NecesidadIngredienteDto> necesidades = [];
+    private List<OrdenProduccionDto> produccion = [];
+    private ModeloDetallePedido modelo = new(), inicial = new();
+    private bool requiereActualizar;
+    protected override string RolRequerido => "buyer";
+    protected override bool TieneCambios => !modelo.EquivaleA(inicial);
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        pedido = InstantaneaPedido.Copiar(Pedido);
+        necesidades = InstantaneaPedido.CopiarNecesidades(Necesidades);
+        produccion = [.. Produccion];
+        requiereActualizar = NecesidadesDesactualizadas;
+        modelo = ModeloInicial.Copiar();
+        inicial = modelo.Copiar();
+    }
+    private Task GuardarAsync()
+    {
+        if (Bloqueado || requiereActualizar || pedido.Estado != 0) return Task.CompletedTask;
+        var errores = modelo.Validar(pedido, Catalogos, necesidades);
+        if (modelo.Asignaciones.Values.Any(a => !necesidades.Any(n => n.Id == a.NecesidadId && produccion.Any(o => o.Id == n.OrdenProduccionId))))
+            errores.Add("Revise las necesidades y sus órdenes de producción disponibles antes de guardar.");
+        if (errores.Count != 0) { MostrarError(string.Join(" ", errores)); return Task.CompletedTask; }
+        var entrada = modelo.ParaEnviar(pedido.Revision);
+        Validacion.CapturarEnvio(); // Selected dictionary order is exactly the payload array order.
+        return GuardarEnServidorAsync(ct => Api.AgregarDetalleCompraAsync(pedido.Id, entrada, ct));
+    }
+    protected override async Task AlErrorApiAsync(ExcepcionApi ex)
+    {
+        if (ex.Estado != System.Net.HttpStatusCode.Conflict) return;
+        requiereActualizar = true;
+        await NecesidadesObsoletas.InvokeAsync();
+    }
+}

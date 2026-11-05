@@ -1,0 +1,47 @@
+@if (Versiones.Count == 0) { <EstadoVacio Mensaje="Todavía no hay recetas registradas." /> }
+else
+{
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+        <MudTextField T="string" @bind-Value="busqueda" @bind-Value:after="ReiniciarPagina" Label="Buscar recetas" HelperText="Nombre, familia, versión o estado · búsqueda local" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" Clearable="true" />
+        <MudSelect T="bool" @bind-Value="descendente" @bind-Value:after="ReiniciarPagina" Label="Ordenar" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem Value="false">Nombre A–Z</MudSelectItem>
+            <MudSelectItem Value="true">Nombre Z–A</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="int" @bind-Value="tamanoPagina" @bind-Value:after="ReiniciarPagina" Label="Filas" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem Value="10">10</MudSelectItem>
+            <MudSelectItem Value="25">25</MudSelectItem>
+            <MudSelectItem Value="50">50</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+    <MudTable Items="Filtradas" @bind-CurrentPage="pagina" RowsPerPage="tamanoPagina" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Versión</MudTh><MudTh>Nombre / familia</MudTh><MudTh>Estado</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Versión">@context.NumeroVersion</MudTd>
+            <MudTd DataLabel="Nombre / familia"><MudText>@context.Nombre</MudText><MudText Typo="Typo.caption">Familia @context.FamiliaRecetaId</MudText></MudTd>
+            <MudTd DataLabel="Estado"><MudChip T="string" Size="Size.Small" Color="@(context.Publicada ? Color.Primary : Color.Default)" Variant="Variant.Outlined">@(context.Publicada ? "Publicada · solo lectura" : "Borrador · editable")</MudChip></MudTd>
+            <MudTd DataLabel="Acciones">
+                <MudButton Size="Size.Small" Disabled="Ocupado" OnClick="() => Seleccionar.InvokeAsync(context)" aria-label="@($"Consultar {context.Nombre}, versión {context.NumeroVersion}")" aria-pressed="@(context.Id == SeleccionadaId ? "true" : "false")">@(context.Id == SeleccionadaId ? "Seleccionada" : "Consultar")</MudButton>
+                @if (PuedeEditar && !context.Publicada) { <MudButton Disabled="Ocupado" OnClick="() => Editar.InvokeAsync(context)" aria-label="@($"Editar {context.Nombre}, versión {context.NumeroVersion}")">Editar</MudButton> }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver las versiones cargadas.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+    </MudTable>
+}
+@* Family identifiers remain visible even when versions are sorted across families. *@
+@code {
+    private string busqueda = "";
+    private bool descendente;
+    private int pagina;
+    private int tamanoPagina = 10;
+    private void ReiniciarPagina() => pagina = 0;
+    protected override void OnParametersSet() => pagina = Math.Clamp(pagina, 0, Math.Max(0, (Coincidencias.Count() - 1) / tamanoPagina));
+    private IEnumerable<VersionRecetaDto> Filtradas => (descendente ? Coincidencias.OrderByDescending(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase) : Coincidencias.OrderBy(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase)).ThenBy(x => x.FamiliaRecetaId).ThenByDescending(x => x.NumeroVersion);
+    private IEnumerable<VersionRecetaDto> Coincidencias => Versiones.Where(x => $"{x.Nombre} {x.FamiliaRecetaId} {x.NumeroVersion} {(x.Publicada ? "Publicada" : "Borrador")}".Contains(busqueda?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+    [Parameter] public List<VersionRecetaDto> Versiones { get; set; } = [];
+    [Parameter] public Guid? SeleccionadaId { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback<VersionRecetaDto> Seleccionar { get; set; }
+    [Parameter] public bool PuedeEditar { get; set; }
+    [Parameter] public EventCallback<VersionRecetaDto> Editar { get; set; }
+}

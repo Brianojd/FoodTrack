@@ -1,0 +1,93 @@
+@using System.Globalization
+
+@if (!Versiones.Any(x => x.Publicada) || Catalogos.Establecimientos.Count == 0)
+{
+    <MudText Typo="Typo.body2" role="status">@(!Versiones.Any(x => x.Publicada) && Catalogos.Establecimientos.Count == 0 ? "Faltan un establecimiento y una versión de receta publicada." : Catalogos.Establecimientos.Count == 0 ? "Falta un establecimiento." : "Falta una versión de receta publicada.")</MudText>
+    @if (Catalogos.Establecimientos.Count == 0)
+    {
+        @if (PuedeAdministrar) { <MudLink Href="/catalogos?area=establecimientos">Gestionar establecimientos</MudLink> }
+        else { <MudText Typo="Typo.body2">Solicite a un administrador que registre un establecimiento.</MudText> }
+    }
+    @if (!Versiones.Any(x => x.Publicada)) { <MudLink Href="/produccion?area=recetas">Ver recetas y versiones</MudLink> }
+}
+else
+{
+    <MudStack Spacing="3">
+        <EditForm Model="Modelo" id="@FormId" OnValidSubmit="PlanificarValidoAsync">
+            <DataAnnotationsValidator />
+            <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Planificacion(Modelo)" />
+            <MudText Typo="Typo.subtitle1" HtmlTag="h3" Class="mb-3">Dónde y qué producir</MudText>
+            <MudSelect T="Guid" Label="Establecimiento" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.EstablecimientoId" For="() => Modelo.EstablecimientoId" Disabled="Ocupado">
+                @foreach (var establecimiento in Catalogos.Establecimientos) { <MudSelectItem T="Guid" Value="establecimiento.Id">@establecimiento.Nombre</MudSelectItem> }
+            </MudSelect>
+            <ValidationMessage For="() => Modelo.EstablecimientoId" />
+            <MudSelect T="Guid" Label="Versión publicada" Variant="Variant.Outlined" Margin="Margin.Dense" Value="Modelo.VersionRecetaId" ValueChanged="CambiarVersionAsync" For="() => Modelo.VersionRecetaId" Disabled="Ocupado">
+                @foreach (var version in Versiones.Where(x => x.Publicada)) { <MudSelectItem T="Guid" Value="version.Id">@($"{version.Nombre} · v{version.NumeroVersion}")</MudSelectItem> }
+            </MudSelect>
+            <ValidationMessage For="() => Modelo.VersionRecetaId" />
+            @if (VersionSeleccionada is { } seleccionada)
+            {
+                <MudText Typo="Typo.caption" Class="d-block mt-2">Rendimiento guardado: @((seleccionada.CantidadRendimiento ?? seleccionada.Rendimiento).ToString("0.######", cultura)) @(seleccionada.UnidadRendimientoId ?? Catalogos.Productos.FirstOrDefault(x => x.Id == seleccionada.ProductoResultadoId)?.UnidadBaseId). Se utilizará exclusivamente esta versión publicada.</MudText>
+                @if (seleccionada.PorcionesRendimiento is > 0)
+                {
+                    <MudSwitch T="bool" Label="Planificar por porciones" Value="Modelo.PorPorciones" ValueChanged="CambiarModoAsync" Disabled="Ocupado" />
+                    <MudText Typo="Typo.caption">Ese rendimiento equivale a @seleccionada.PorcionesRendimiento porciones de esta receta. La orden se guardará en la unidad base del producto.</MudText>
+                }
+            }
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.subtitle1" HtmlTag="h3" Class="mb-3">Cantidad y fecha</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="7" sm="6">
+                    <MudNumericField T="decimal" Label="@(Modelo.PorPorciones ? "Porciones a producir" : "Cantidad a producir")" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.Cantidad" For="() => Modelo.Cantidad" Min="0m" Disabled="Ocupado" Culture="cultura" Format="0.######" Immediate="true" />
+                    <ValidationMessage For="() => Modelo.Cantidad" />
+                </MudItem>
+                @if (!Modelo.PorPorciones) { <MudItem xs="5" sm="6">
+                    <MudSelect T="string" Label="Unidad" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.UnidadMedidaId" For="() => Modelo.UnidadMedidaId" Disabled="@(Ocupado || VersionSeleccionada is null)">
+                        @foreach (var unidad in UnidadesCompatibles) { <MudSelectItem T="string" Value="@unidad.Id">@unidad.Id</MudSelectItem> }
+                    </MudSelect>
+                    <ValidationMessage For="() => Modelo.UnidadMedidaId" />
+                </MudItem> }
+            </MudGrid>
+            <MudDatePicker Label="Fecha de producción" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Date="Modelo.Fecha" For="() => Modelo.Fecha" Culture="cultura" DateFormat="dd/MM/yyyy" Editable="true" Disabled="Ocupado" />
+            <ValidationMessage For="() => Modelo.Fecha" />
+            <ValidationSummary />
+            @foreach (var error in errores) { <MudAlert Severity="Severity.Error" role="alert" Class="my-2">@error</MudAlert> }
+            @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="Ocupado">Guardar planificación</MudButton> }
+        </EditForm>
+        <MudText Typo="Typo.body2" Class="mt-3">La API convierte la cantidad a la unidad base del producto y calcula y persiste las necesidades brutas. No se calculan existencias ni faltantes.</MudText>
+    </MudStack>
+}
+
+@code {
+    [Parameter, EditorRequired] public ModeloPlanificacion Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public List<VersionRecetaDto> Versiones { get; set; } = [];
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public bool PuedeAdministrar { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public EventCallback VersionCambiada { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+    private readonly CultureInfo cultura = CultureInfo.GetCultureInfo("es-AR");
+    private List<string> errores = [];
+    private VersionRecetaDto? VersionSeleccionada => Versiones.FirstOrDefault(x => x.Id == Modelo.VersionRecetaId && x.Publicada);
+    private IEnumerable<UnidadMedidaDto> UnidadesCompatibles => VersionSeleccionada is { } version ? CompatibilidadUnidades.ParaProducto(Catalogos, version.ProductoResultadoId) : [];
+    private async Task CambiarVersionAsync(Guid id)
+    {
+        if (Ocupado) return;
+        Modelo.VersionRecetaId = id; Modelo.UnidadMedidaId = ""; Modelo.PorPorciones = false; errores.Clear();
+        await VersionCambiada.InvokeAsync();
+    }
+    private async Task CambiarModoAsync(bool valor)
+    {
+        if (Ocupado || valor && VersionSeleccionada?.PorcionesRendimiento is not > 0) return;
+        Modelo.PorPorciones = valor; Modelo.UnidadMedidaId = ""; errores.Clear();
+        await VersionCambiada.InvokeAsync();
+    }
+    private async Task PlanificarValidoAsync()
+    {
+        if (Ocupado) return;
+        errores = Modelo.Validar(Catalogos, Versiones);
+        if (errores.Count == 0) await Guardar.InvokeAsync();
+    }
+}

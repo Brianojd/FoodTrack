@@ -1,0 +1,19 @@
+.produccion {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.produccion ::deep .mud-button-root {
+    max-width: 100%;
+    white-space: normal;
+}
+
+.produccion ::deep a:focus-visible,
+.produccion ::deep button:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 3px;
+}
+
+.produccion ::deep .mud-table-cell {
+    overflow-wrap: anywhere;
+}

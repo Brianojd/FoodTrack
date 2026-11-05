@@ -1,0 +1,36 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(InstantaneaPedido.DetalleActivo(pedido, detalleId) is not null)">
+    <VistaPedidoCompra Pedido="pedido" Catalogos="Catalogos" />
+    <EditorDetallesPedido Modelo="modeloDetalle" Pedido="pedido" Catalogos="Catalogos" Edicion="modelo" Ocupado="Bloqueado" GuardarCantidad="GuardarAsync" FormId="FormId" AccionesExternas="true" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public Guid DetalleId { get; set; }
+    private PedidoCompraDto pedido = new();
+    private Guid detalleId;
+    private readonly ModeloDetallePedido modeloDetalle = new();
+    private ModeloCantidadPresentaciones modelo = new();
+    protected override string RolRequerido => "buyer";
+    protected override bool TieneCambios => modelo.Cantidad != modelo.CantidadOriginal;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); detalleId = DetalleId;
+        if (InstantaneaPedido.DetalleActivo(pedido, detalleId) is { } detalle)
+            modelo = new() { DetalleId = detalleId, Cantidad = detalle.CantidadPresentaciones, CantidadOriginal = detalle.CantidadPresentaciones };
+        else MostrarError("El detalle no pertenece al borrador de esta apertura o ya fue retirado. No se enviará ninguna operación.");
+    }
+    private Task GuardarAsync()
+    {
+        if (Bloqueado) return Task.CompletedTask;
+        var detalle = InstantaneaPedido.DetalleActivo(pedido, detalleId);
+        if (detalle is null) { MostrarError("El detalle ya no es editable en la instantánea original."); return Task.CompletedTask; }
+        var errores = modelo.Validar(detalle);
+        if (errores.Count != 0) { MostrarError(string.Join(" ", errores)); return Task.CompletedTask; }
+        var entrada = new ActualizarCantidadPresentacionesDto { Revision = pedido.Revision, CantidadPresentaciones = modelo.Cantidad };
+        return GuardarEnServidorAsync(ct => Api.ActualizarPresentacionesAsync(pedido.Id, detalleId, entrada, ct));
+    }
+}

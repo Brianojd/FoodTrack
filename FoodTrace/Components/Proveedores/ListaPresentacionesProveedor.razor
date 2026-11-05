@@ -1,0 +1,39 @@
+@if (Datos.Presentaciones.Count == 0) { <EstadoVacio Mensaje="No hay presentaciones registradas." /> }
+else
+{
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+        <MudTextField T="string" @bind-Value="busqueda" @bind-Value:after="ReiniciarPagina" Label="Buscar en registros cargados" HelperText="Presentación, proveedor, producto o unidad · búsqueda local" Immediate="true" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudSelect T="bool" @bind-Value="descendente" @bind-Value:after="ReiniciarPagina" Label="Ordenar presentaciones">
+            <MudSelectItem Value="false">Nombre A–Z</MudSelectItem>
+            <MudSelectItem Value="true">Nombre Z–A</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="int" @bind-Value="tamanoPagina" @bind-Value:after="ReiniciarPagina" Label="Filas por página">
+            <MudSelectItem Value="10">10</MudSelectItem>
+            <MudSelectItem Value="25">25</MudSelectItem>
+            <MudSelectItem Value="50">50</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+    <MudTable Items="Filtradas" @bind-CurrentPage="pagina" RowsPerPage="tamanoPagina" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Proveedor</MudTh><MudTh>Presentación</MudTh><MudTh>Producto</MudTh><MudTh Class="text-right">Contenido</MudTh><MudTh Class="text-right">Cantidad base (API)</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Proveedor">@Datos.Proveedores.FirstOrDefault(x => x.Id == context.ProveedorId)?.Nombre</MudTd>
+            <MudTd DataLabel="Presentación">@context.Nombre</MudTd>
+            <MudTd DataLabel="Producto">@Datos.Productos.FirstOrDefault(x => x.Id == context.ProductoId)?.Nombre</MudTd>
+             <MudTd DataLabel="Contenido" Class="text-right">@context.Cantidad.ToString("G29") @context.UnidadMedidaId</MudTd>
+             <MudTd DataLabel="Cantidad base (API)" Class="text-right">@context.CantidadBase.ToString("G29") @Datos.Productos.FirstOrDefault(x => x.Id == context.ProductoId)?.UnidadBaseId</MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver las presentaciones cargadas.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+    </MudTable>
+}
+@code {
+    [Parameter, EditorRequired] public CatalogosDto Datos { get; set; } = new();
+    private string busqueda = "";
+    private bool descendente;
+    private int pagina;
+    private int tamanoPagina = 10;
+    private void ReiniciarPagina() => pagina = 0;
+    protected override void OnParametersSet() => pagina = Math.Clamp(pagina, 0, Math.Max(0, (Coincidencias.Count() - 1) / tamanoPagina));
+    private IEnumerable<PresentacionProveedorDto> Filtradas => descendente ? Coincidencias.OrderByDescending(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase) : Coincidencias.OrderBy(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase);
+    private IEnumerable<PresentacionProveedorDto> Coincidencias => Datos.Presentaciones.Where(x => $"{x.Nombre} {x.UnidadMedidaId} {Datos.Proveedores.FirstOrDefault(p => p.Id == x.ProveedorId)?.Nombre} {Datos.Productos.FirstOrDefault(p => p.Id == x.ProductoId)?.Nombre}".Contains(busqueda?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+}

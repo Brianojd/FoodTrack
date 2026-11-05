@@ -1,0 +1,71 @@
+<MudBreakpointProvider OnBreakpointChanged="Control.CambiarBreakpointAsync" />
+<MudDialog DefaultFocus="DefaultFocus.FirstChild" OnBackdropClick="() => Control.PedirCancelarAsync()" OnKeyUp="Control.TeclaAsync" ContentClass="pa-6" ActionsClass="px-6 pb-4">
+    <DialogContent>
+        <FoodTrace.Components.Shared.MensajeError Mensaje="@Control.Error" TraceId="@Control.TraceId" />
+        @if (Control.Guardando) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="Guardando cambios" Class="mb-3" /> }
+        <CascadingValue Value="Control.Validacion" IsFixed="true">
+            @ChildContent
+        </CascadingValue>
+        @if (Control.Validacion.Generales.Count != 0)
+        {
+            <MudAlert Severity="Severity.Error" role="alert" Class="my-3">
+                @foreach (var mensaje in Control.Validacion.Generales) { <MudText Typo="Typo.body2">@mensaje</MudText> }
+            </MudAlert>
+        }
+        @if (Control.ConfirmarDescarte)
+        {
+            <MudAlert Severity="Severity.Warning" role="alert" Class="mt-4">Hay cambios sin guardar. ¿Desea descartarlos? No se enviará ninguna operación.</MudAlert>
+        }
+        else if (Control.ConfirmacionGuardado.Length != 0)
+        {
+            <MudAlert Severity="Severity.Warning" role="alert" Class="mt-4">@Control.ConfirmacionGuardado</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (Control.ConfirmarDescarte)
+        {
+            <MudButton @ref="volver" OnClick="Control.SeguirEditando">Seguir editando</MudButton>
+            <MudButton Color="Color.Error" OnClick="Control.Descartar">Descartar cambios</MudButton>
+        }
+        else if (Control.ConfirmacionGuardado.Length != 0)
+        {
+            <MudButton @ref="volver" OnClick="Control.SeguirEditando">Volver a editar</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Control.ConfirmarGuardadoAsync">Confirmar guardado</MudButton>
+        }
+        else
+        {
+            <MudButton Disabled="Control.Guardando" OnClick="Control.PedirCancelarAsync">Cancelar</MudButton>
+            @if (UsarFormulario)
+            {
+                <MudButton @ref="guardar" ButtonType="ButtonType.Submit" form="@Control.FormId" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Control.Guardando || !GuardarDisponible)">@(Control.Guardando ? "Guardando…" : EtiquetaGuardar)</MudButton>
+            }
+            else
+            {
+                <MudButton @ref="guardar" ButtonType="ButtonType.Button" OnClick="Guardar" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Control.Guardando || !GuardarDisponible)">@(Control.Guardando ? "Guardando…" : EtiquetaGuardar)</MudButton>
+            }
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter, EditorRequired] public DialogoEdicionBase Control { get; set; } = null!;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool UsarFormulario { get; set; } = true;
+    [Parameter] public bool GuardarDisponible { get; set; } = true;
+    [Parameter] public string EtiquetaGuardar { get; set; } = "Guardar";
+    [Parameter] public EventCallback Guardar { get; set; }
+    private MudButton? volver, guardar;
+    private bool confirmando, guardando;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var actual = Control.ConfirmarDescarte || Control.ConfirmacionGuardado.Length != 0;
+        var terminoGuardado = guardando && !Control.Guardando;
+        guardando = Control.Guardando;
+        if (actual != confirmando || terminoGuardado)
+        {
+            confirmando = actual;
+            if (actual && volver is not null) await volver.FocusAsync();
+            else if (!Control.Guardando && guardar is not null) await guardar.FocusAsync();
+        }
+    }
+}
