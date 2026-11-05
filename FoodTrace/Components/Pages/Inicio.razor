@@ -1,0 +1,131 @@
+﻿@page "/"
+@inherits PaginaAdministrativa
+@inject IServicioRecetas RecetasApi
+@inject IServicioProduccion ProduccionApi
+@inject IServicioCompras ComprasApi
+@inject EstadoInicio Estado
+
+<PageTitle>Inicio · FoodTrace</PageTitle>
+<div class="inicio">
+    <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="inicio-encabezado">
+        <MudStack Spacing="0" Class="inicio-identidad">
+            <MudText Typo="Typo.h4" HtmlTag="h1">Inicio</MudText>
+            @if (Estado.Documento is { } anterior)
+            {
+                <MudText Typo="Typo.body2">@anterior.Catalogos.Empresa.Nombre</MudText>
+                <MudText Typo="Typo.caption">Última consulta completa: @anterior.Consultado.ToString("dd/MM/yyyy HH:mm zzz")</MudText>
+            }
+        </MudStack>
+        <MudButton OnClick="ActualizarAsync" Disabled="Ocupado" Color="Color.Secondary" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh">Actualizar resumen</MudButton>
+    </MudStack>
+    <MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+    @if (Ocupado && Estado.Documento is null) { <EstadoCarga Mensaje="Consultando registros de la empresa…" /> }
+    @if (Error.Length != 0 && Estado.Documento is not null) { <MudAlert Severity="Severity.Warning" Class="mb-4">El resumen no se actualizó. Se conserva la última consulta completa; no se reemplazaron errores por ceros.</MudAlert> }
+    @if (Estado.Documento is { } resumen)
+    {
+        <section aria-label="Resumen de registros" class="inicio-resumen">
+            <MudGrid Spacing="2">
+                <MudItem xs="6" md="3">
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-metrica">
+                        <MudText Class="inicio-cifra">@resumen.Ordenes.Count</MudText>
+                        <MudText Typo="Typo.body2">Órdenes registradas</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" md="3">
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-metrica">
+                        <MudText Class="inicio-cifra">@resumen.Pedidos.Count</MudText>
+                        <MudText Typo="Typo.body2">Pedidos registrados</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" md="3">
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-metrica">
+                        <MudText Class="inicio-cifra">@resumen.PedidosEnEstado(1)</MudText>
+                        <MudText Typo="Typo.body2">Pedidos enviados para decisión</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" md="3">
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-metrica">
+                        <MudText Class="inicio-cifra">@resumen.Publicadas</MudText>
+                        <MudText Typo="Typo.body2">Versiones publicadas</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            <MudText Typo="Typo.caption" Class="d-block mt-3">Registros acumulados de la empresa, no previsiones, stock ni métricas de recepción. Las necesidades brutas no representan existencias de inventario.</MudText>
+        </section>
+
+        @if (resumen.Ordenes.Count == 0 && resumen.Pedidos.Count == 0)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-actividad">
+                <MudText Typo="Typo.h6" HtmlTag="h2">Actividad reciente</MudText>
+                <MudText Typo="Typo.body2" role="status" Class="mt-1">Todavía no hay planificaciones ni pedidos registrados.</MudText>
+            </MudPaper>
+        }
+        else
+        {
+            <MudGrid Spacing="3" Class="inicio-actividad">
+                @if (resumen.Ordenes.Count != 0)
+                {
+                    <MudItem xs="12" md="@(resumen.Pedidos.Count != 0 ? 6 : 12)">
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-panel">
+                            <FoodTrace.Components.Inicio.PlanesRecientes Ordenes="resumen.Ordenes" Versiones="resumen.Versiones" Datos="resumen.Catalogos" />
+                        </MudPaper>
+                    </MudItem>
+                }
+                @if (resumen.Pedidos.Count != 0)
+                {
+                    <MudItem xs="12" md="@(resumen.Ordenes.Count != 0 ? 6 : 12)">
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-panel">
+                            <FoodTrace.Components.Inicio.PedidosRecientes Pedidos="resumen.Pedidos" Proveedores="resumen.Catalogos.Proveedores" />
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+            @if (resumen.Ordenes.Count == 0 || resumen.Pedidos.Count == 0)
+            {
+                <MudText Typo="Typo.caption" role="status" Class="d-block mt-2">@(resumen.Ordenes.Count == 0 ? "Todavía no hay planificaciones registradas." : "Todavía no hay pedidos registrados.")</MudText>
+            }
+        }
+
+        @if (resumen.Pedidos.Any(x => x.Estado != 1) || resumen.Versiones.Count > resumen.Publicadas)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 inicio-contexto">
+                <MudText Typo="Typo.h6" HtmlTag="h2">Otros estados registrados</MudText>
+                <MudStack Spacing="2" Class="mt-2">
+                    @if (resumen.Pedidos.Any(x => x.Estado != 1))
+                    {
+                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                            @if (resumen.PedidosEnEstado(0) > 0) { <MudText Typo="Typo.body2">Pedidos en borrador: @resumen.PedidosEnEstado(0)</MudText> }
+                            @if (resumen.PedidosEnEstado(2) > 0) { <MudText Typo="Typo.body2">Pedidos aprobados: @resumen.PedidosEnEstado(2)</MudText> }
+                            @if (resumen.PedidosEnEstado(3) > 0) { <MudText Typo="Typo.body2">Pedidos rechazados: @resumen.PedidosEnEstado(3)</MudText> }
+                            @if (resumen.Pedidos.Any(x => x.Estado is < 0 or > 3)) { <MudText Typo="Typo.body2">Pedidos en otros estados recibidos: @resumen.Pedidos.Count(x => x.Estado is < 0 or > 3)</MudText> }
+                        </MudStack>
+                    }
+                    @if (resumen.Versiones.Count > resumen.Publicadas)
+                    {
+                        <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2">Versiones de recetas en borrador: @(resumen.Versiones.Count - resumen.Publicadas)</MudText>
+                            <MudButton Href="/produccion?area=recetas" Color="Color.Secondary" Size="Size.Small">Ver recetas y versiones</MudButton>
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    }
+    else if (!Ocupado) { <MudText role="status">Todavía no hay una consulta completa disponible. Use Actualizar resumen para volver a intentarlo.</MudText> }
+</div>
+
+@code {
+    protected override Task ActualizarAsync() => EjecutarAsync(async ct =>
+    {
+        var catalogos = Catalogos.ObtenerCatalogosAsync(ct);
+        var versiones = RecetasApi.ObtenerRecetasAsync(ct);
+        var ordenes = ProduccionApi.ObtenerProduccionAsync(ct);
+        var pedidos = ComprasApi.ObtenerPedidosCompraAsync(ct);
+        await Task.WhenAll(catalogos, versiones, ordenes, pedidos);
+        if (!Vigente) return;
+        Estado.Documento = new FoodTrace.Models.Inicio.ResumenInicio
+        {
+            Catalogos = await catalogos, Versiones = await versiones, Ordenes = await ordenes, Pedidos = await pedidos
+        };
+    }, esConsulta: true);
+}

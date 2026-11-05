@@ -1,0 +1,67 @@
+<MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="1" Class="mb-2">
+    <MudText Typo="Typo.subtitle1" HtmlTag="h3">Ingredientes</MudText>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@(Ocupado || Ingredientes.Count >= 200 || Catalogos.Productos.Count == 0)" OnClick="AgregarAsync">Agregar ingrediente</MudButton>
+</MudStack>
+<MudText Typo="Typo.caption">Indique cantidad y unidad por línea. Puede repetir un producto.</MudText>
+@if (Ingredientes.Count == 0) { <MudText Typo="Typo.body2" role="status" Class="mt-2">Agregue al menos un ingrediente para guardar el borrador.</MudText> }
+@foreach (var ingrediente in Ingredientes)
+{
+    <MudStack @key="ingrediente.Clave" Spacing="1" Class="mt-3">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="5">
+                <MudAutocomplete T="Guid?" Label="Ingrediente" Placeholder="Seleccioná un ingrediente" Variant="Variant.Outlined" Margin="Margin.Dense"
+                    Value="@(ingrediente.ProductoId == Guid.Empty ? (Guid?)null : ingrediente.ProductoId)" ValueChanged="id => CambiarProductoAsync(ingrediente, id ?? Guid.Empty)"
+                    SearchFunc="BuscarAsync" ToStringFunc="NombreProducto" Clearable="true" ResetValueOnEmptyText="true" CoerceValue="false" MinCharacters="0" MaxItems="100" Disabled="Ocupado" />
+                <ValidationMessage For="() => ingrediente.ProductoId" />
+                @if (PuedeAdministrar) { <MudButton Size="Size.Small" Disabled="Ocupado" OnClick="() => CrearProducto.InvokeAsync(ingrediente.Clave)">Crear ingrediente</MudButton> }
+            </MudItem>
+            <MudItem xs="5" sm="3">
+                <MudNumericField T="decimal" Label="Cantidad" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="ingrediente.Cantidad" @bind-Value:after="NotificarAsync" For="() => ingrediente.Cantidad" Disabled="Ocupado" Min="0m" Culture="cultura" Format="0.######" Immediate="true" />
+                <ValidationMessage For="() => ingrediente.Cantidad" />
+            </MudItem>
+            <MudItem xs="5" sm="3">
+                <MudSelect T="string" Label="Unidad" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="ingrediente.UnidadMedidaId" @bind-Value:after="NotificarAsync" For="() => ingrediente.UnidadMedidaId" Disabled="@(Ocupado || ingrediente.ProductoId == Guid.Empty)">
+                    @foreach (var unidad in CompatibilidadUnidades.ParaProducto(Catalogos, ingrediente.ProductoId)) { <MudSelectItem T="string" Value="@unidad.Id">@unidad.Id</MudSelectItem> }
+                </MudSelect>
+                <ValidationMessage For="() => ingrediente.UnidadMedidaId" />
+                @if (avisos.Contains(ingrediente.Clave) && ingrediente.UnidadMedidaId.Length == 0) { <MudText Typo="Typo.caption">La unidad anterior no es compatible. Seleccione una unidad para este ingrediente.</MudText> }
+            </MudItem>
+            <MudItem xs="2" sm="1" Class="d-flex align-center justify-end"><MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small" Color="Color.Error" Disabled="Ocupado" aria-label="@($"Quitar ingrediente {Ingredientes.IndexOf(ingrediente) + 1}")" OnClick="() => QuitarAsync(ingrediente)" /></MudItem>
+        </MudGrid>
+    </MudStack>
+}
+
+@code {
+    [CascadingParameter] public EditContext? Contexto { get; set; }
+    [Parameter, EditorRequired] public List<ModeloIngredienteReceta> Ingredientes { get; set; } = [];
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Cambiado { get; set; }
+    [Parameter] public bool PuedeAdministrar { get; set; }
+    [Parameter] public EventCallback<Guid?> CrearProducto { get; set; }
+    private readonly System.Globalization.CultureInfo cultura = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+    private readonly HashSet<Guid> avisos = [];
+    private string NombreProducto(Guid? id) => Catalogos.Productos.FirstOrDefault(x => x.Id == id)?.Nombre ?? "";
+    private Task<IEnumerable<Guid?>> BuscarAsync(string? texto, CancellationToken ct) => Task.FromResult(
+        Catalogos.Productos.Where(x => string.IsNullOrWhiteSpace(texto) || x.Nombre.Contains(texto, StringComparison.CurrentCultureIgnoreCase)).Select(x => (Guid?)x.Id));
+    private Task NotificarAsync() => Cambiado.InvokeAsync();
+    private void ColeccionCambiada()
+    {
+        if (Contexto?.Model is ModeloVersionReceta modelo) Contexto.NotifyFieldChanged(new(modelo, nameof(modelo.Ingredientes)));
+    }
+    private async Task AgregarAsync() { if (Ocupado || Ingredientes.Count >= 200) return; Ingredientes.Add(new()); ColeccionCambiada(); await NotificarAsync(); }
+    private async Task QuitarAsync(ModeloIngredienteReceta ingrediente) { if (Ocupado) return; Ingredientes.Remove(ingrediente); avisos.Remove(ingrediente.Clave); ColeccionCambiada(); await NotificarAsync(); }
+    private async Task CambiarProductoAsync(ModeloIngredienteReceta ingrediente, Guid id)
+    {
+        if (Ocupado) return;
+        ingrediente.ProductoId = id;
+        Contexto?.NotifyFieldChanged(new(ingrediente, nameof(ingrediente.ProductoId)));
+        if (!CompatibilidadUnidades.ParaProducto(Catalogos, id).Any(x => x.Id == ingrediente.UnidadMedidaId))
+        {
+            if (ingrediente.UnidadMedidaId.Length != 0) avisos.Add(ingrediente.Clave);
+            ingrediente.UnidadMedidaId = "";
+            Contexto?.NotifyFieldChanged(new(ingrediente, nameof(ingrediente.UnidadMedidaId)));
+        }
+        await NotificarAsync();
+    }
+}

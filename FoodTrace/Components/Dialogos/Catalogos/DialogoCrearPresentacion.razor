@@ -1,0 +1,23 @@
+@inherits DialogoEdicionBase
+@inject ICatalogosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <EditorPresentacionProveedor Modelo="Modelo" Datos="Datos" FormId="FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public FormularioPresentacion Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Datos { get; set; } = new();
+    private (Guid Proveedor, Guid Producto, string Nombre, string Unidad, decimal Cantidad) inicial;
+    protected override bool TieneCambios => inicial != (Modelo.ProveedorId, Modelo.ProductoId, Modelo.Nombre, Modelo.UnidadMedidaId, Modelo.Cantidad);
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        inicial = (Modelo.ProveedorId, Modelo.ProductoId, Modelo.Nombre, Modelo.UnidadMedidaId, Modelo.Cantidad);
+    }
+    private Task GuardarAsync() => GuardarEnServidorAsync(ct => Api.CrearPresentacionAsync(new CrearPresentacionProveedorDto
+    {
+        ProveedorId = Modelo.ProveedorId, ProductoId = Modelo.ProductoId, Nombre = Modelo.Nombre.Trim(),
+        UnidadMedidaId = Modelo.UnidadMedidaId, Cantidad = Modelo.Cantidad
+    }, ct));
+}

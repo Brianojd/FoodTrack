@@ -1,0 +1,28 @@
+@if (Pedido.Estado == 1 && PuedeAprobar)
+{
+    <MudStack Spacing="3">
+        @if (MostrarFormularioRechazo)
+        {
+        <EditForm Model="Modelo" id="@FormId" OnValidSubmit="() => Rechazar.InvokeAsync()">
+            <DataAnnotationsValidator />
+            <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Rechazo(Modelo)" />
+            <MudTextField Label="Motivo obligatorio del rechazo" @bind-Value="Modelo.Motivo" For="() => Modelo.Motivo" Disabled="Ocupado" Lines="3" />
+            <ValidationMessage For="() => Modelo.Motivo" />
+            <ValidationSummary />
+            @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Color="Color.Error" Disabled="Ocupado">Revisar rechazo</MudButton> }
+        </EditForm>
+        }
+        else { <MudText>El pedido enviado está pendiente de decisión. Una aprobación confirmada queda de solo lectura; un rechazo libera asignaciones y conserva el historial.</MudText> }
+    </MudStack>
+}
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter] public ModeloRechazoCompra Modelo { get; set; } = new();
+    [Parameter] public bool PuedeAprobar { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Aprobar { get; set; }
+    [Parameter] public EventCallback Rechazar { get; set; }
+    [Parameter] public bool MostrarFormularioRechazo { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+}

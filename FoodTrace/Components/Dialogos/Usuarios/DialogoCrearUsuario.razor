@@ -1,0 +1,25 @@
+@inherits DialogoEdicionBase
+@inject IUsuariosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <EditorUsuario Modelo="Modelo" FormId="@FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public FormularioUsuario Modelo { get; set; } = new();
+    private string correoInicial = "";
+    private string[] rolesIniciales = [];
+    protected override bool TieneCambios => Modelo.Correo != correoInicial || Modelo.Contrasena.Length != 0 || !rolesIniciales.Order().SequenceEqual(Modelo.Roles.Order());
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        correoInicial = Modelo.Correo;
+        rolesIniciales = [.. Modelo.Roles];
+        Modelo.Contrasena = "";
+    }
+    private Task GuardarAsync() => GuardarEnServidorAsync(ct => Api.CrearUsuarioAsync(new CrearUsuarioDto
+    {
+        Correo = Modelo.Correo.Trim(), Contrasena = Modelo.Contrasena, Roles = [.. Modelo.Roles]
+    }, ct));
+    protected override void LimpiarDatosPrivados() => Modelo.Contrasena = "";
+}

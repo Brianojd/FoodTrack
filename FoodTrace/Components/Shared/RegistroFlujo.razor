@@ -1,0 +1,6 @@
+<div class="record">@ChildContent</div>
+
+@code {
+    // ChildContent conserva el nombre requerido por la convención de contenido de Blazor.
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

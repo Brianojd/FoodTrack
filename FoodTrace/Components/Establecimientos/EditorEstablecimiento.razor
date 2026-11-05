@@ -1,0 +1,18 @@
+<MudStack Spacing="2">
+    <EditForm Model="Modelo" id="@FormId" OnValidSubmit="() => Guardar.InvokeAsync()">
+        <DataAnnotationsValidator />
+        <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Nombre(Modelo)" />
+        <MudTextField Label="@Etiqueta" @bind-Value="Modelo.Nombre" For="() => Modelo.Nombre" Disabled="Ocupado" />
+        <ValidationMessage For="() => Modelo.Nombre" />
+        <ValidationSummary />
+        @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Ocupado" Class="mt-3">Guardar</MudButton> }
+    </EditForm>
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public FormularioNombre Modelo { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public string Etiqueta { get; set; } = "Nombre del establecimiento";
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+}

@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+
+<main class="acceso" aria-label="Acceso a FoodTrace">
+    <section class="acceso-tarjeta" aria-labelledby="marca-foodtrace">
+        <MudStack Spacing="6">
+            <MudStack Spacing="2" Class="acceso-marca">
+                <MudText Typo="Typo.h3" HtmlTag="p" Color="Color.Primary" Class="acceso-nombre" id="marca-foodtrace">FoodTrace</MudText>
+                <MudText Typo="Typo.body2" Class="acceso-lema">Gestión y trazabilidad de alimentos</MudText>
+            </MudStack>
+            @Body
+        </MudStack>
+    </section>
+</main>

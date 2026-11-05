@@ -1,0 +1,19 @@
+@inherits DialogoEdicionBase
+@inject IServicioRecetas Api
+
+<MarcoDialogoEdicion Control="this" UsarFormulario="false" EtiquetaGuardar="Publicar" Guardar="PublicarAsync" GuardarDisponible="@(!Version.Publicada)">
+    <MudAlert Severity="Severity.Warning" Class="mb-4">Se publicará exclusivamente la versión guardada que se muestra a continuación. Quedará de solo lectura y podrá utilizarse para planificar. No se publican cambios locales sin guardar.</MudAlert>
+    <VistaVersionReceta Version="Version" Catalogos="Catalogos" />
+    <MudText Typo="Typo.body2">Si se informa un conflicto, cancele y consulte la versión actual antes de decidir. No se adoptará otra revisión ni se repetirá la publicación automáticamente.</MudText>
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public VersionRecetaDto Version { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    private Guid id, revisionOriginal;
+    protected override string RolRequerido => "planner";
+    protected override bool TieneCambios => false;
+    protected override void OnInitialized() { base.OnInitialized(); id = Version.Id; revisionOriginal = Version.Revision; }
+    private Task PublicarAsync() => Version.Publicada ? Task.CompletedTask
+        : GuardarEnServidorAsync(ct => Api.PublicarRecetaAsync(id, new RevisionDto { Revision = revisionOriginal }, ct));
+}

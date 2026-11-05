@@ -1,0 +1,17 @@
+<MudStack Spacing="1">
+    <MudText Typo="Typo.h6" HtmlTag="h3">@Version.Nombre · versión @Version.NumeroVersion</MudText>
+    <MudText Typo="Typo.caption">Familia: @Version.FamiliaRecetaId · @(Version.Publicada ? "Publicada · solo lectura" : "Borrador · consulta")</MudText>
+    <MudText Typo="Typo.body2">Producto elaborado: @(Catalogos.Productos.FirstOrDefault(x => x.Id == Version.ProductoResultadoId)?.Nombre ?? Version.ProductoResultadoId.ToString()) · rendimiento @((Version.CantidadRendimiento ?? Version.Rendimiento).ToString("0.######", cultura)) @(Version.UnidadRendimientoId ?? Catalogos.Productos.FirstOrDefault(x => x.Id == Version.ProductoResultadoId)?.UnidadBaseId ?? "(unidad base no disponible)")</MudText>
+    @if (Version.PorcionesRendimiento is { } porciones) { <MudText Typo="Typo.body2">Equivalencia de esta receta: @porciones.ToString("0.######", cultura) porciones por rendimiento.</MudText> }
+    <MudText Typo="Typo.subtitle2" HtmlTag="h4" Class="mt-3">Instrucciones</MudText>
+    <MudText Style="white-space: pre-wrap">@Version.Instrucciones</MudText>
+    <MudTable Items="Version.Ingredientes" Dense="true" Breakpoint="Breakpoint.Sm" Elevation="0" Class="mt-3">
+        <HeaderContent><MudTh>Ingrediente</MudTh><MudTh>Cantidad</MudTh><MudTh>Unidad</MudTh></HeaderContent>
+        <RowTemplate><MudTd DataLabel="Ingrediente">@(Catalogos.Productos.FirstOrDefault(x => x.Id == context.ProductoId)?.Nombre ?? context.ProductoId.ToString())</MudTd><MudTd DataLabel="Cantidad">@context.Cantidad</MudTd><MudTd DataLabel="Unidad">@context.UnidadMedidaId</MudTd></RowTemplate>
+    </MudTable>
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public VersionRecetaDto Version { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    private readonly System.Globalization.CultureInfo cultura = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+}

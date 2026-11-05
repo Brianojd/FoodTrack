@@ -1,0 +1,22 @@
+<fieldset class="roles-foodtrace">
+    <legend>Roles independientes</legend>
+    @foreach (var rol in RolesDisponibles)
+    {
+        <MudCheckBox T="bool" Value="Roles.Contains(rol.Codigo)" ValueChanged="valor => CambiarAsync(rol.Codigo, valor)" Label="@rol.Nombre" Disabled="Ocupado" />
+    }
+</fieldset>
+@code {
+    [CascadingParameter] public EditContext? Contexto { get; set; }
+    [Parameter] public string[] Roles { get; set; } = [];
+    [Parameter] public EventCallback<string[]> RolesChanged { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    private static readonly (string Codigo, string Nombre)[] RolesDisponibles =
+    [ ("admin", "Administrador"), ("planner", "Planificador"), ("buyer", "Comprador"), ("operator", "Operador") ];
+    private async Task CambiarAsync(string rol, bool valor)
+    {
+        if (Ocupado) return;
+        await RolesChanged.InvokeAsync(valor ? Roles.Append(rol).Distinct().ToArray() : Roles.Where(x => x != rol).ToArray());
+        if (Contexto?.Model is FormularioUsuario usuario) Contexto.NotifyFieldChanged(new(usuario, nameof(usuario.Roles)));
+        else if (Contexto?.Model is FormularioMembresia membresia) Contexto.NotifyFieldChanged(new(membresia, nameof(membresia.Roles)));
+    }
+}

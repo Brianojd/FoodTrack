@@ -1,0 +1,69 @@
+.inicio {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inicio ::deep .inicio-encabezado {
+    margin-bottom: 1.25rem;
+}
+
+.inicio ::deep .inicio-identidad {
+    min-width: 0;
+    flex: 1 1 16rem;
+}
+
+.inicio ::deep .inicio-metrica {
+    height: 100%;
+}
+
+/* El tema usa títulos compactos; las cifras necesitan una jerarquía propia. */
+.inicio ::deep .inicio-cifra {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: .5rem;
+}
+
+.inicio ::deep .inicio-actividad,
+.inicio ::deep .inicio-contexto {
+    margin-top: 1.5rem;
+}
+
+.inicio ::deep .inicio-registros {
+    list-style: none;
+    margin: .75rem 0 0;
+    padding: 0;
+}
+
+.inicio ::deep .inicio-registro {
+    border-top: 1px solid var(--mud-palette-divider);
+    padding: .75rem 0;
+}
+
+.inicio ::deep .inicio-registro:last-child {
+    padding-bottom: 0;
+}
+
+.inicio ::deep .inicio-detalle {
+    min-width: 0;
+    flex: 1 1 12rem;
+}
+
+.inicio ::deep .mud-button-root {
+    max-width: 100%;
+    white-space: normal;
+}
+
+.inicio ::deep a:focus-visible,
+.inicio ::deep button:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 3px;
+}
+
+@media (max-width: 599.98px) {
+    .inicio ::deep .inicio-actividad,
+    .inicio ::deep .inicio-contexto {
+        margin-top: 1rem;
+    }
+}

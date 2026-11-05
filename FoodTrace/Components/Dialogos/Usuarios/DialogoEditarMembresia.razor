@@ -1,0 +1,20 @@
+@inherits DialogoEdicionBase
+@inject IUsuariosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <EditorMembresia Modelo="Modelo" FormId="@FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public FormularioMembresia Modelo { get; set; } = new();
+    private bool habilitadoInicial;
+    private string[] rolesIniciales = [];
+    protected override bool TieneCambios => Modelo.Habilitado != habilitadoInicial || !rolesIniciales.Order().SequenceEqual(Modelo.Roles.Order());
+    protected override void OnInitialized() { base.OnInitialized(); habilitadoInicial = Modelo.Habilitado; rolesIniciales = [.. Modelo.Roles]; }
+    private Task GuardarAsync()
+    {
+        if (Modelo.Id == Sesion.Identidad?.Id) return Task.CompletedTask;
+        return RevisarGuardadoAsync(ct => Api.ActualizarMembresiaAsync(Modelo.Id, new ActualizarMembresiaDto { Habilitado = Modelo.Habilitado, Roles = [.. Modelo.Roles] }, ct),
+            $"Se actualizarán los roles de {Modelo.Correo}. El acceso quedará {(Modelo.Habilitado ? "habilitado" : "deshabilitado")}. Los cambios pueden invalidar sus sesiones actuales. Confirme los permisos seleccionados antes de guardar.");
+    }
+}

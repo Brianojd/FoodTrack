@@ -1,0 +1,115 @@
+@page "/compras"
+@inherits PaginaAdministrativa
+@inject NavigationManager Navegacion
+
+<PageTitle>Compras · FoodTrace</PageTitle>
+<EncabezadoPagina Titulo="Compras" Descripcion="Pedidos, proveedores, presentaciones y decisiones persistidas por la API. No representa stock ni recepción." />
+<MudTabs ActivePanelIndex="indiceArea" ActivePanelIndexChanged="CambiarArea" KeepPanelsAlive="true" LazyLoadPanels="true" TabPanelsClass="pt-4" Elevation="0" Rounded="true">
+<MudTabPanel Text="Pedidos">
+<MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (Ocupado && Estado.Catalogos is null) { <EstadoCarga /> }
+@if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+<MudPaper Class="pa-6" Outlined="true" Elevation="0">
+<MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+    @if (Sesion.TieneRol("buyer"))
+    {
+        <MudButton @ref="botonCrear" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Ocupado || Estado.Catalogos is null || Estado.Catalogos.Proveedores.Count == 0)" OnClick="CrearAsync" StartIcon="@Icons.Material.Filled.Add">Crear pedido</MudButton>
+    }
+    <MudButton @ref="botonActualizar" Disabled="Ocupado" OnClick="ActualizarAsync" StartIcon="@Icons.Material.Filled.Refresh">Actualizar listas sin descartar borradores</MudButton>
+    <MudButton Disabled="Ocupado" OnClick="() => ActualizarNecesidadesGuardadasAsync()">Actualizar necesidades</MudButton>
+</MudStack>
+@if (Estado.NecesidadesDesactualizadas) { <MudAlert Severity="Severity.Warning" Class="mb-4">Las necesidades requieren una consulta nueva. No se permiten nuevas asignaciones hasta actualizarlas; no repita las escrituras ya confirmadas.</MudAlert> }
+@if (Estado.Catalogos is not null)
+{
+    @if (Estado.Pedidos.Count == 0) { <EstadoVacio Mensaje="Todavía no hay pedidos de compra guardados." /> }
+    else
+    {
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+            <MudTextField T="string" @bind-Value="busquedaPedidos" @bind-Value:after="ReiniciarPaginaPedidos" Label="Buscar en registros cargados" HelperText="Pedido, proveedor o estado · búsqueda local" Immediate="true" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+            <MudSelect T="bool" @bind-Value="proveedorDescendente" @bind-Value:after="ReiniciarPaginaPedidos" Label="Ordenar pedidos">
+                <MudSelectItem Value="false">Proveedor A–Z</MudSelectItem>
+                <MudSelectItem Value="true">Proveedor Z–A</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="int" @bind-Value="tamanoPaginaPedidos" @bind-Value:after="ReiniciarPaginaPedidos" Label="Filas por página">
+                <MudSelectItem Value="10">10</MudSelectItem>
+                <MudSelectItem Value="25">25</MudSelectItem>
+                <MudSelectItem Value="50">50</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+        <MudTable Items="PedidosFiltrados" @bind-CurrentPage="paginaPedidos" RowsPerPage="tamanoPaginaPedidos" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+            <HeaderContent><MudTh>Pedido</MudTh><MudTh>Proveedor</MudTh><MudTh>Estado</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Pedido">@context.Id</MudTd><MudTd DataLabel="Proveedor">@(Estado.Catalogos.Proveedores.FirstOrDefault(x => x.Id == context.ProveedorId)?.Nombre ?? context.ProveedorId.ToString())</MudTd>
+                <MudTd DataLabel="Estado">@EstadoCompras.NombreEstado(context.Estado)</MudTd>
+                <MudTd DataLabel="Acciones"><MudButton Disabled="Ocupado" OnClick="() => SeleccionarAsync(context)" aria-label="@($"Consultar pedido {context.Id}")">Consultar pedido</MudButton></MudTd>
+            </RowTemplate>
+            <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver los pedidos cargados. El formulario seleccionado se conserva.</MudText></NoRecordsContent>
+            <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+        </MudTable>
+    }
+    @if (Estado.Seleccionado is { } pedido)
+    {
+        <MudButton Disabled="Ocupado" OnClick="RevisarAsync">Consultar versión actual sin adoptar su revisión</MudButton>
+        <MudButton Disabled="Ocupado" OnClick="RecargarAsync">Confirmar descarte y recargar pedido</MudButton>
+        <VistaPedidoCompra Pedido="pedido" Catalogos="Estado.Catalogos" Necesidades="Estado.Necesidades" PuedeEditar="@(Sesion.TieneRol("buyer"))" Ocupado="Ocupado" Editar="EditarCantidadAsync" Retirar="RetirarAsync" FocoAlternativo="SolicitarFocoAlternativo" />
+        @if (pedido.Estado == 0 && Sesion.TieneRol("buyer"))
+        {
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-4">
+                <MudButton @ref="botonAgregar" Disabled="@(Ocupado || Estado.NecesidadesDesactualizadas || !Estado.Catalogos.Presentaciones.Any(x => x.ProveedorId == pedido.ProveedorId))" Variant="Variant.Filled" Color="Color.Primary" OnClick="AgregarAsync">Agregar detalle</MudButton>
+                <MudButton @ref="botonEnviar" Disabled="@(Ocupado || HayDetalleSinGuardar || !pedido.Detalles.Any())" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="EnviarAsync">Enviar pedido</MudButton>
+            </MudStack>
+        }
+        @if (HayDetalleSinGuardar || Estado.Rechazo.Motivo.Length != 0)
+        {
+            <MudAlert Severity="Severity.Info">Se conserva un borrador local anterior. Agregar detalle reutiliza su copia; descártelo explícitamente si ya no lo necesita. No se envía junto con comandos sobre la revisión guardada.</MudAlert>
+            <MudButton Disabled="Ocupado" OnClick="DescartarDetalleAsync">Descartar borradores locales anteriores</MudButton>
+        }
+        @if (pedido.Estado == 1 && Sesion.TieneRol("admin"))
+        {
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-4">
+                <MudButton @ref="botonAprobar" Color="Color.Primary" Variant="Variant.Filled" Disabled="Ocupado" OnClick="AprobarAsync">Aprobar pedido</MudButton>
+                <MudButton @ref="botonRechazar" Color="Color.Error" Variant="Variant.Outlined" Disabled="Ocupado" OnClick="RechazarAsync">Rechazar pedido</MudButton>
+            </MudStack>
+        }
+    }
+    @if (revisionServidor is not null)
+    {
+        <MudAlert Severity="Severity.Info">Consulta actual del servidor · solo lectura. Su formulario y su revisión original no se modificaron.</MudAlert>
+        <VistaPedidoCompra Pedido="revisionServidor" Catalogos="Estado.Catalogos" Necesidades="Estado.Necesidades" />
+    }
+}
+</MudPaper>
+
+</MudTabPanel>
+<MudTabPanel Text="Proveedores y presentaciones">
+    <FoodTrace.Components.Pages.Proveedores.Proveedores EnContenedor="true" />
+</MudTabPanel>
+</MudTabs>
+
+@code {
+    [CascadingParameter] public EstadoNavegacion? EstadoNav { get; set; }
+    [SupplyParameterFromQuery(Name = "area")] public string? Area { get; set; }
+    private int indiceArea;
+    protected override void OnParametersSet()
+    {
+        var area = EstadoNav?.ResolverArea("compras", Area) ?? (Area == "proveedores" ? "proveedores" : "pedidos");
+        indiceArea = Array.IndexOf(EstadoNavegacion.Areas("compras"), area);
+        if (EstadoNav is not null && Area != area)
+            Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "compras", area), replace: true);
+        AjustarPaginaPedidos();
+    }
+    private void CambiarArea(int indice)
+    {
+        if (indiceArea == indice) return;
+        indiceArea = indice;
+        Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "compras", EstadoNavegacion.Areas("compras")[indice]));
+    }
+    private string busquedaPedidos = "";
+    private bool proveedorDescendente;
+    private int paginaPedidos;
+    private int tamanoPaginaPedidos = 10;
+    private void ReiniciarPaginaPedidos() => paginaPedidos = 0;
+    private string NombreProveedor(PedidoCompraDto pedido) => Estado.Catalogos?.Proveedores.FirstOrDefault(x => x.Id == pedido.ProveedorId)?.Nombre ?? pedido.ProveedorId.ToString();
+    private IEnumerable<PedidoCompraDto> PedidosFiltrados => proveedorDescendente ? PedidosCoincidentes.OrderByDescending(NombreProveedor, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Id) : PedidosCoincidentes.OrderBy(NombreProveedor, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Id);
+    private IEnumerable<PedidoCompraDto> PedidosCoincidentes => Estado.Pedidos.Where(x => $"{x.Id} {NombreProveedor(x)} {EstadoCompras.NombreEstado(x.Estado)}".Contains(busquedaPedidos?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+}

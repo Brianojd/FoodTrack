@@ -1,0 +1,45 @@
+@if (Ordenes.Count == 0) { <EstadoVacio Mensaje="Todavía no hay órdenes de producción guardadas." /> }
+else
+{
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+        <MudTextField T="string" @bind-Value="busqueda" @bind-Value:after="ReiniciarPagina" Label="Buscar órdenes" HelperText="Fecha, establecimiento o versión · búsqueda local" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" Clearable="true" />
+        <MudSelect T="bool" @bind-Value="antiguasPrimero" @bind-Value:after="ReiniciarPagina" Label="Ordenar" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem Value="false">Fecha más reciente</MudSelectItem>
+            <MudSelectItem Value="true">Fecha más antigua</MudSelectItem>
+        </MudSelect>
+        <MudSelect T="int" @bind-Value="tamanoPagina" @bind-Value:after="ReiniciarPagina" Label="Filas" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelectItem Value="10">10</MudSelectItem>
+            <MudSelectItem Value="25">25</MudSelectItem>
+            <MudSelectItem Value="50">50</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+    <MudTable Items="Filtradas" @bind-CurrentPage="pagina" RowsPerPage="tamanoPagina" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Fecha</MudTh><MudTh>Establecimiento</MudTh><MudTh>Versión publicada</MudTh><MudTh Class="text-right">Cantidad guardada (base)</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Fecha">@context.FechaPlanificada.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd DataLabel="Establecimiento">@(Catalogos.Establecimientos.FirstOrDefault(x => x.Id == context.EstablecimientoId)?.Nombre ?? context.EstablecimientoId.ToString())</MudTd>
+            <MudTd DataLabel="Versión publicada"><MudText Typo="Typo.body2">@NombreVersion(context.VersionRecetaId)</MudText><MudText Typo="Typo.caption">Orden @context.Id</MudText></MudTd>
+            <MudTd DataLabel="Cantidad guardada (base)" Class="text-right">@context.CantidadPlanificada.ToString("G29") @UnidadBase(context.VersionRecetaId)</MudTd>
+            <MudTd DataLabel="Acciones"><MudButton Size="Size.Small" Disabled="Ocupado" OnClick="() => Seleccionar.InvokeAsync(context.Id)" aria-label="@($"Consultar necesidades de la orden {context.Id}")">Ver detalle</MudButton></MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver las órdenes cargadas.</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+    </MudTable>
+}
+@code {
+    private string busqueda = "";
+    private bool antiguasPrimero;
+    private int pagina;
+    private int tamanoPagina = 10;
+    private void ReiniciarPagina() => pagina = 0;
+    protected override void OnParametersSet() => pagina = Math.Clamp(pagina, 0, Math.Max(0, (Coincidencias.Count() - 1) / tamanoPagina));
+    private IEnumerable<OrdenProduccionDto> Filtradas => antiguasPrimero ? Coincidencias.OrderBy(x => x.FechaPlanificada) : Coincidencias.OrderByDescending(x => x.FechaPlanificada);
+    private IEnumerable<OrdenProduccionDto> Coincidencias => Ordenes.Where(x => $"{x.FechaPlanificada:dd/MM/yyyy} {Catalogos.Establecimientos.FirstOrDefault(e => e.Id == x.EstablecimientoId)?.Nombre} {NombreVersion(x.VersionRecetaId)}".Contains(busqueda?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+    [Parameter] public List<OrdenProduccionDto> Ordenes { get; set; } = [];
+    [Parameter] public List<VersionRecetaDto> Versiones { get; set; } = [];
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback<Guid> Seleccionar { get; set; }
+    private string NombreVersion(Guid id) => Versiones.FirstOrDefault(x => x.Id == id) is { } version ? $"{version.Nombre} · v{version.NumeroVersion}" : $"Versión {id} no disponible";
+    private string UnidadBase(Guid id) => Catalogos.Productos.FirstOrDefault(x => x.Id == Versiones.FirstOrDefault(v => v.Id == id)?.ProductoResultadoId)?.UnidadBaseId ?? "(unidad base no disponible)";
+}

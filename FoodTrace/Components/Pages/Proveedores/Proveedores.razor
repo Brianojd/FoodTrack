@@ -1,0 +1,99 @@
+@page "/proveedores"
+@inherits PaginaAdministrativa
+
+@if (!EnContenedor) { <RedireccionModulo /> }
+else
+{
+<EncabezadoPagina HeadingTag="h2" Titulo="Proveedores y presentaciones" Descripcion="La API permite crear proveedores y presentaciones, pero no editarlos ni eliminarlos." />
+<MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (Ocupado && Datos is null) { <EstadoCarga /> }
+@if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+<MudPaper Class="pa-6 mb-6" Outlined="true" Elevation="0">
+<MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+    @if (Sesion.TieneRol("admin")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CrearProveedorAsync" Disabled="@(Ocupado || Datos is null)" StartIcon="@Icons.Material.Filled.Add">Crear proveedor</MudButton> }
+    <MudButton OnClick="ActualizarAsync" Disabled="Ocupado" StartIcon="@Icons.Material.Filled.Refresh">Actualizar listas</MudButton>
+</MudStack>
+@if (Datos is not null)
+{
+    @if (Datos.Proveedores.Count == 0) { <EstadoVacio Mensaje="No hay proveedores registrados." /> }
+    else
+    {
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+            <MudTextField T="string" @bind-Value="busqueda" @bind-Value:after="ReiniciarPagina" Label="Buscar en registros cargados" HelperText="Nombre del proveedor · búsqueda local" Immediate="true" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+            <MudSelect T="bool" @bind-Value="descendente" @bind-Value:after="ReiniciarPagina" Label="Ordenar proveedores">
+                <MudSelectItem Value="false">Nombre A–Z</MudSelectItem>
+                <MudSelectItem Value="true">Nombre Z–A</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="int" @bind-Value="tamanoPagina" @bind-Value:after="ReiniciarPagina" Label="Filas por página">
+                <MudSelectItem Value="10">10</MudSelectItem>
+                <MudSelectItem Value="25">25</MudSelectItem>
+                <MudSelectItem Value="50">50</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+        <MudTable Items="ProveedoresFiltrados" @bind-CurrentPage="pagina" RowsPerPage="tamanoPagina" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+            <HeaderContent><MudTh>Proveedor</MudTh></HeaderContent>
+            <RowTemplate><MudTd DataLabel="Proveedor">@context.Nombre</MudTd></RowTemplate>
+            <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver los proveedores cargados.</MudText></NoRecordsContent>
+            <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+        </MudTable>
+    }
+}
+</MudPaper>
+@if (Datos is not null)
+{
+    <MudPaper Class="pa-6" Outlined="true" Elevation="0">
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.h6" HtmlTag="h3">Presentaciones comerciales</MudText>
+        <MudSpacer />
+        @if (Sesion.TieneRol("admin")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CrearPresentacionAsync" Disabled="@(Ocupado || Datos.Productos.Count == 0 || Datos.Proveedores.Count == 0)" StartIcon="@Icons.Material.Filled.Add">Crear presentación</MudButton> }
+    </MudStack>
+    @if (Datos.Productos.Count == 0 || Datos.Proveedores.Count == 0) { <MudText Typo="Typo.body2" Class="mb-3">Para crear una presentación se necesita al menos un producto y un proveedor registrados.</MudText> }
+    <ListaPresentacionesProveedor Datos="Datos" />
+    </MudPaper>
+}
+
+}
+
+@code {
+    [Parameter] public bool EnContenedor { get; set; }
+    protected override Task OnInitializedAsync() => EnContenedor ? base.OnInitializedAsync() : Task.CompletedTask;
+    private string busqueda = "";
+    private bool descendente;
+    private int pagina;
+    private int tamanoPagina = 10;
+    private void ReiniciarPagina() => pagina = 0;
+    private IEnumerable<NombreDto> ProveedoresFiltrados => descendente ? ProveedoresCoincidentes.OrderByDescending(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase) : ProveedoresCoincidentes.OrderBy(x => x.Nombre, StringComparer.CurrentCultureIgnoreCase);
+    private IEnumerable<NombreDto> ProveedoresCoincidentes => (Datos?.Proveedores ?? []).Where(x => x.Nombre.Contains(busqueda?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+    protected override void OnParametersSet() => pagina = Math.Clamp(pagina, 0, Math.Max(0, (ProveedoresCoincidentes.Count() - 1) / tamanoPagina));
+    protected override async Task ActualizarAsync()
+    {
+        await base.ActualizarAsync();
+        pagina = Math.Clamp(pagina, 0, Math.Max(0, (ProveedoresCoincidentes.Count() - 1) / tamanoPagina));
+    }
+    private Task CrearProveedorAsync()
+    {
+        if (Datos is null) return Task.CompletedTask;
+        var parametros = new DialogParameters<DialogoCrearProveedor> { { x => x.Modelo, new FormularioNombre { Nombre = Formularios.Proveedor.Nombre } } };
+        return AbrirEditorAsync<DialogoCrearProveedor, NombreDto>("Crear proveedor", parametros, creado =>
+        {
+            Datos.Proveedores.Add(creado);
+            Formularios.Proveedor = new();
+        });
+    }
+    private Task CrearPresentacionAsync()
+    {
+        if (Datos is null) return Task.CompletedTask;
+        var borrador = Formularios.Presentacion;
+        var modelo = new FormularioPresentacion
+        {
+            ProveedorId = borrador.ProveedorId, ProductoId = borrador.ProductoId, Nombre = borrador.Nombre,
+            UnidadMedidaId = borrador.UnidadMedidaId, Cantidad = borrador.Cantidad
+        };
+        var parametros = new DialogParameters<DialogoCrearPresentacion> { { x => x.Modelo, modelo }, { x => x.Datos, Datos } };
+        return AbrirEditorAsync<DialogoCrearPresentacion, PresentacionProveedorDto>("Crear presentación de proveedor", parametros, creada =>
+        {
+            Datos.Presentaciones.Add(creada);
+            Formularios.Presentacion = new();
+        }, MaxWidth.Medium);
+    }
+}

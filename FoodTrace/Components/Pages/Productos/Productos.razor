@@ -1,0 +1,139 @@
+@page "/productos"
+@inherits PaginaAdministrativa
+
+@if (!EnContenedor)
+{
+    <RedireccionModulo />
+}
+else
+{
+    <div class="productos-vista">
+
+        <MensajeError Mensaje="@Error"
+                      Reintentar="ActualizarAsync"
+                      Ocupado="Ocupado" />
+
+        @if (!string.IsNullOrEmpty(Aviso))
+        {
+            <MudAlert Severity="Severity.Success"
+                      role="status">
+                @Aviso
+            </MudAlert>
+        }
+
+        @if (Ocupado && Datos is null)
+        {
+            <EstadoCarga />
+        }
+
+        <MudPaper Class="productos-tarjeta"
+                  Outlined="true"
+                  Elevation="0">
+
+            <div class="productos-acciones">
+      @*           <MudButton Variant="Variant.Text"
+                           Color="Color.Default"
+                           OnClick="ActualizarAsync"
+                           Disabled="Ocupado"
+                           StartIcon="@Icons.Material.Filled.Refresh">
+                    Actualizar
+                </MudButton> *@
+
+                @if (Sesion.TieneRol("admin"))
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="CrearAsync"
+                               Disabled="@(Ocupado || Datos is null)"
+                               StartIcon="@Icons.Material.Filled.Add">
+                        Crear producto
+                    </MudButton>
+                }
+            </div>
+
+            @if (Datos is not null)
+            {
+                <div class="productos-listado">
+                    <ListaProductos Elementos="Datos.Productos" />
+                </div>
+            }
+
+        </MudPaper>
+    </div>
+}
+
+<style>
+    .productos-vista {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .productos-tarjeta {
+        padding: 20px 24px 8px;
+        border-radius: 12px;
+        min-width: 0;
+    }
+
+    .productos-acciones {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .productos-listado {
+        min-width: 0;
+    }
+
+    @@media (max-width: 600px) {
+        .productos-tarjeta {
+            padding: 16px 12px 4px;
+        }
+
+        .productos-acciones {
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public bool EnContenedor { get; set; }
+
+    protected override Task OnInitializedAsync() =>
+        EnContenedor
+            ? base.OnInitializedAsync()
+            : Task.CompletedTask;
+
+    private Task CrearAsync()
+    {
+        if (Datos is null)
+            return Task.CompletedTask;
+
+        var modelo = new FormularioProducto
+        {
+            Nombre = Formularios.Producto.Nombre,
+            UnidadBaseId = Formularios.Producto.UnidadBaseId
+        };
+
+        var parametros = new DialogParameters<DialogoCrearProducto>
+        {
+            { x => x.Modelo, modelo },
+            { x => x.Unidades, Datos.UnidadesMedida }
+        };
+
+        return AbrirEditorAsync<DialogoCrearProducto, ProductoDto>(
+            "Crear producto",
+            parametros,
+            creado =>
+            {
+                Datos.Productos.Add(creado);
+                Formularios.Producto = new();
+            });
+    }
+}

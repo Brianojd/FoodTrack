@@ -1,0 +1,165 @@
+@page "/produccion"
+@inherits PaginaAdministrativa
+@inject IServicioRecetas RecetasApi
+@inject IServicioProduccion ProduccionApi
+@inject NavigationManager Navegacion
+
+<PageTitle>Producción y necesidades · FoodTrace</PageTitle>
+<div class="produccion">
+<MudStack Spacing="1" Class="mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="h1">Producción</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary">Organice recetas publicadas y planifique la producción de su empresa.</MudText>
+</MudStack>
+<MudTabs ActivePanelIndex="indiceArea" ActivePanelIndexChanged="CambiarArea" KeepPanelsAlive="true" LazyLoadPanels="true" TabPanelsClass="pt-4" Elevation="0" Rounded="true" Color="Color.Primary">
+<MudTabPanel Text="Planificación y necesidades">
+<MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (Ocupado && Estado.Catalogos is null) { <EstadoCarga /> }
+@if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+<MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="mb-4">
+    <MudText Typo="Typo.h6" HtmlTag="h2">Planificación</MudText>
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+        @if (Sesion.TieneRol("planner"))
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="PlanificarAsync" Disabled="@(Ocupado || Estado.Catalogos is null || Estado.Catalogos.Establecimientos.Count == 0 || !Estado.Versiones.Any(x => x.Publicada))">Planificar producción</MudButton>
+        }
+        <MudTooltip Text="Consulta los datos sin descartar su planificación local."><MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ActualizarAsync" Disabled="Ocupado">Actualizar</MudButton></MudTooltip>
+    </MudStack>
+</MudStack>
+@if (Estado.Catalogos is not null)
+{
+    @if (!Estado.Versiones.Any(x => x.Publicada) || Estado.Catalogos.Establecimientos.Count == 0)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle2" HtmlTag="h3">Antes de planificar</MudText>
+            <MudText Typo="Typo.body2" Class="mt-1">@(!Estado.Versiones.Any(x => x.Publicada) && Estado.Catalogos.Establecimientos.Count == 0 ? "Faltan un establecimiento y una versión de receta publicada." : Estado.Catalogos.Establecimientos.Count == 0 ? "Falta un establecimiento." : "Falta una versión de receta publicada.")</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mt-2">
+                @if (Estado.Catalogos.Establecimientos.Count == 0)
+                {
+                    @if (Sesion.TieneRol("admin")) { <MudLink Href="/catalogos?area=establecimientos">Gestionar establecimientos</MudLink> }
+                    else { <MudText Typo="Typo.body2">Solicite a un administrador que registre un establecimiento.</MudText> }
+                }
+                @if (!Estado.Versiones.Any(x => x.Publicada)) { <MudLink Href="/produccion?area=recetas">Ver recetas y versiones</MudLink> }
+            </MudStack>
+        </MudPaper>
+    }
+    @if (!Sesion.TieneRol("planner")) { <MudText Typo="Typo.body2" Class="mb-3">Consulta de producción. Para planificar se requiere el rol Planificador.</MudText> }
+    @if (Estado.Ordenes.Count != 0)
+    {
+        <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.subtitle2" HtmlTag="h3">Órdenes guardadas</MudText>
+            <ListaOrdenesProduccion Ordenes="Estado.Ordenes" Versiones="Estado.Versiones" Catalogos="Estado.Catalogos" Ocupado="Ocupado" Seleccionar="SeleccionarOrden" />
+        </MudPaper>
+    }
+    else { <MudText Typo="Typo.body2" role="status" Class="my-3">Todavía no hay órdenes de producción guardadas.</MudText> }
+    @if (Estado.OrdenSeleccionadaId is { } id)
+    {
+        @if (Estado.Ordenes.FirstOrDefault(x => x.Id == id) is { } orden)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+                <MudText Typo="Typo.subtitle2" HtmlTag="h3">Detalle de la orden</MudText>
+                <MudText Typo="Typo.caption">@orden.Id · @orden.FechaPlanificada.ToString("dd/MM/yyyy")</MudText>
+                <MudText Typo="Typo.body2">Versión guardada: @orden.VersionRecetaId</MudText>
+                @if (Estado.Versiones.FirstOrDefault(x => x.Id == orden.VersionRecetaId) is { } version)
+                {
+                    <MudText Typo="Typo.body2">@version.Nombre · versión @version.NumeroVersion · rendimiento @version.Rendimiento @Estado.Catalogos.Productos.FirstOrDefault(x => x.Id == version.ProductoResultadoId)?.UnidadBaseId</MudText>
+                    <MudText Typo="Typo.body2">Cantidad planificada guardada: @orden.CantidadPlanificada @Estado.Catalogos.Productos.FirstOrDefault(x => x.Id == version.ProductoResultadoId)?.UnidadBaseId (unidad base).</MudText>
+                }
+            </MudPaper>
+        }
+        else { <MudAlert Severity="Severity.Warning">La orden solicitada no está disponible en los datos actuales.</MudAlert> }
+    }
+    @if (Estado.Necesidades.Count != 0 || Estado.OrdenSeleccionadaId.HasValue)
+    {
+        <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
+            <MudStack Row="true" Wrap="Wrap.Wrap" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
+                <MudText Typo="Typo.h6" HtmlTag="h2">Necesidades de ingredientes</MudText>
+                @if (Estado.OrdenSeleccionadaId.HasValue) { <MudButton OnClick="MostrarTodas" Disabled="Ocupado" Size="Size.Small">Ver todas las órdenes</MudButton> }
+            </MudStack>
+            <MudText Typo="Typo.body2" Class="mt-1 mb-3">Necesidades brutas guardadas y asignadas a compras; no representan stock ni consumo.</MudText>
+            @if (Estado.OrdenSeleccionadaId is { } seleccion) { <MudText Typo="Typo.caption" Class="d-block mb-2">Orden @seleccion · registros originales, sin recalcular con versiones posteriores.</MudText> }
+            <TablaNecesidadesIngredientes Necesidades="@(Estado.OrdenSeleccionadaId is { } seleccionada ? Estado.Necesidades.Where(x => x.OrdenProduccionId == seleccionada).ToList() : Estado.Necesidades)" Catalogos="Estado.Catalogos" />
+        </MudPaper>
+    }
+}
+
+</MudTabPanel>
+<MudTabPanel Text="Recetas y versiones">
+    <FoodTrace.Components.Pages.Recetas.Recetas EnContenedor="true" />
+</MudTabPanel>
+</MudTabs>
+</div>
+
+@code {
+    [CascadingParameter] public EstadoNavegacion? EstadoNav { get; set; }
+    [SupplyParameterFromQuery(Name = "area")] public string? Area { get; set; }
+    private int indiceArea;
+    private void CambiarArea(int indice)
+    {
+        if (indiceArea == indice) return;
+        indiceArea = indice;
+        Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "produccion", EstadoNavegacion.Areas("produccion")[indice]));
+    }
+    [SupplyParameterFromQuery(Name = "orden")] public Guid? Orden { get; set; }
+    private EstadoProduccion Estado => Formularios.Produccion;
+    private readonly ControlCargaModulo carga = new();
+    protected override void OnParametersSet()
+    {
+        var area = EstadoNav?.ResolverArea("produccion", Area, Orden.HasValue)
+            ?? (Orden.HasValue ? "planificacion" : Area == "recetas" ? "recetas" : "planificacion");
+        indiceArea = Array.IndexOf(EstadoNavegacion.Areas("produccion"), area);
+        if (EstadoNav is not null && Area != area)
+            Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "produccion", area), replace: true);
+        if (Orden is { } id && Estado.OrdenSeleccionadaId != id) { carga.Cancelar(); Estado.OrdenSeleccionadaId = id; }
+    }
+
+    protected override Task ActualizarAsync() => EjecutarAsync(async ct =>
+    {
+        var turno = carga.Iniciar(ct);
+        var catalogos = Catalogos.ObtenerCatalogosAsync(turno.Token);
+        var versiones = RecetasApi.ObtenerRecetasAsync(turno.Token);
+        var ordenes = ProduccionApi.ObtenerProduccionAsync(turno.Token);
+        var necesidades = ProduccionApi.ObtenerNecesidadesAsync(turno.Token);
+        await Task.WhenAll(catalogos, versiones, ordenes, necesidades);
+        if (!Vigente || !carga.EsActual(turno.Generacion)) return;
+        Estado.Catalogos = await catalogos; Estado.Versiones = await versiones;
+        Estado.Ordenes = await ordenes; Estado.Necesidades = await necesidades;
+    }, esConsulta: true);
+
+    private void SeleccionarOrden(Guid id)
+    {
+        if (Ocupado) return;
+        carga.Cancelar();
+        Estado.OrdenSeleccionadaId = id;
+        IrAOrden(id, false);
+    }
+    private void IrAOrden(Guid id, bool reemplazar)
+    {
+        var uri = Navegacion.GetUriWithQueryParameters(new Dictionary<string, object?> { ["area"] = "planificacion", ["orden"] = id });
+        Navegacion.NavigateTo(uri, replace: reemplazar);
+    }
+    private void MostrarTodas()
+    {
+        if (Ocupado) return;
+        carga.Cancelar();
+        Estado.OrdenSeleccionadaId = null;
+        Navegacion.NavigateTo(Navegacion.GetUriWithQueryParameters(new Dictionary<string, object?> { ["area"] = "planificacion", ["orden"] = null }));
+    }
+    private Task PlanificarAsync()
+    {
+        if (!Sesion.TieneRol("planner") || Estado.Catalogos is null) return Task.CompletedTask;
+        carga.Cancelar();
+        var parametros = new DialogParameters<DialogoPlanificarProduccion>
+        {
+            { x => x.Modelo, Estado.Formulario.Copiar() }, { x => x.Catalogos, Estado.Catalogos }, { x => x.Versiones, Estado.Versiones }
+        };
+        return AbrirEditorAsync<DialogoPlanificarProduccion, OrdenProduccionDto>("Planificar producción", parametros, orden =>
+        {
+            Estado.Ordenes = Estado.Ordenes.Where(x => x.Id != orden.Id).Append(orden).ToList();
+            Estado.Necesidades = Estado.Necesidades.Where(x => x.OrdenProduccionId != orden.Id).Concat(orden.Necesidades).ToList();
+            Estado.OrdenSeleccionadaId = orden.Id;
+            Estado.Formulario = new();
+            IrAOrden(orden.Id, true);
+        }, MaxWidth.Medium, "planner");
+    }
+    public override void Dispose() { carga.Dispose(); base.Dispose(); }
+}

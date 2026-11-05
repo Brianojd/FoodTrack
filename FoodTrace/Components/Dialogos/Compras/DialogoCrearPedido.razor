@@ -1,0 +1,23 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(Catalogos.Proveedores.Count != 0)">
+    <MudText Typo="Typo.body2" Class="mb-3">Se creará el encabezado de un borrador. Agregar detalles será una acción posterior explícita.</MudText>
+    <FormularioPedidoCompra Modelo="modelo" Catalogos="Catalogos" Ocupado="Bloqueado" Guardar="GuardarAsync" FormId="FormId" AccionesExternas="true" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public Guid ProveedorInicialId { get; set; }
+    private ModeloPedidoCompra modelo = new();
+    private Guid inicial;
+    protected override string RolRequerido => "buyer";
+    protected override bool TieneCambios => modelo.ProveedorId != inicial;
+    protected override void OnInitialized() { base.OnInitialized(); inicial = ProveedorInicialId; modelo = new() { ProveedorId = inicial }; }
+    private Task GuardarAsync()
+    {
+        if (!Catalogos.Proveedores.Any(x => x.Id == modelo.ProveedorId)) { MostrarError("Seleccione un proveedor disponible de su empresa."); return Task.CompletedTask; }
+        var entrada = new CrearPedidoCompraDto { ProveedorId = modelo.ProveedorId };
+        return GuardarEnServidorAsync(ct => Api.CrearPedidoCompraAsync(entrada, ct));
+    }
+}

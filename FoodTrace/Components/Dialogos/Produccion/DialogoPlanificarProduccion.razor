@@ -1,0 +1,24 @@
+@inherits DialogoEdicionBase
+@inject IServicioProduccion Api
+
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(Catalogos.Establecimientos.Count != 0 && Versiones.Any(x => x.Publicada))">
+    <FormularioPlanificacion Modelo="modelo" Catalogos="Catalogos" Versiones="Versiones" PuedeAdministrar="@(Sesion.TieneRol("admin"))" Ocupado="Bloqueado" Guardar="GuardarAsync" FormId="@FormId" AccionesExternas="true" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public ModeloPlanificacion Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public List<VersionRecetaDto> Versiones { get; set; } = [];
+    private ModeloPlanificacion modelo = new(), inicial = new();
+    protected override string RolRequerido => "planner";
+    protected override bool TieneCambios => !modelo.EquivaleA(inicial);
+    protected override void OnInitialized() { base.OnInitialized(); modelo = Modelo.Copiar(); inicial = modelo.Copiar(); }
+    private Task GuardarAsync()
+    {
+        if (Bloqueado) return Task.CompletedTask;
+        var errores = modelo.Validar(Catalogos, Versiones);
+        if (errores.Count != 0) { MostrarError(string.Join(" ", errores)); return Task.CompletedTask; }
+        var entrada = modelo.ParaEnviar();
+        return GuardarEnServidorAsync(ct => Api.PlanificarProduccionAsync(entrada, ct));
+    }
+}

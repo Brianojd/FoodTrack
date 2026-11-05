@@ -1,6 +1,26 @@
-@FoodTrace.API_HostAddress = http://localhost:5288
+@host = https://localhost:7240
+# Supply email, password and bearerToken through your HTTP client's private environment.
+# Never save live credentials or tokens in this file.
 
-GET {{FoodTrace.API_HostAddress}}/weatherforecast/
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{email}}", "password": "{{password}}" }
+
+###
+GET {{host}}/api/catalogs
+Authorization: Bearer {{bearerToken}}
 Accept: application/json
 
 ###
+
+GET {{host}}/api/recipes
+Authorization: Bearer {{bearerToken}}
+
+###
+GET {{host}}/api/production
+Authorization: Bearer {{bearerToken}}
+
+###
+GET {{host}}/api/purchases
+Authorization: Bearer {{bearerToken}}

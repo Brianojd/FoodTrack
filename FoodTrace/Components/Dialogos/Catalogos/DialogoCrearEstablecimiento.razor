@@ -1,0 +1,14 @@
+@inherits DialogoEdicionBase
+@inject ICatalogosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <EditorEstablecimiento Modelo="Modelo" FormId="FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public FormularioNombre Modelo { get; set; } = new();
+    private string nombreInicial = "";
+    protected override bool TieneCambios => Modelo.Nombre != nombreInicial;
+    protected override void OnInitialized() { base.OnInitialized(); nombreInicial = Modelo.Nombre; }
+    private Task GuardarAsync() => GuardarEnServidorAsync(ct => Api.CrearEstablecimientoAsync(new CrearEstablecimientoDto { Nombre = Modelo.Nombre.Trim() }, ct));
+}

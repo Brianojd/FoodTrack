@@ -1,0 +1,19 @@
+@inherits DialogoEdicionBase
+@inject IServicioCompras Api
+
+<MarcoDialogoEdicion Control="this" UsarFormulario="false" EtiquetaGuardar="Enviar pedido" Guardar="EnviarAsync" GuardarDisponible="PuedeEnviar">
+    <MudAlert Severity="Severity.Warning" Class="mb-3">Se enviará únicamente la revisión guardada de este pedido para decisión. Sus detalles dejarán de ser editables. No se enviarán borradores locales ni se repetirá automáticamente la operación.</MudAlert>
+    <VistaPedidoCompra Pedido="pedido" Catalogos="Catalogos" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter, EditorRequired] public PedidoCompraDto Pedido { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    private PedidoCompraDto pedido = new();
+    private bool PuedeEnviar => pedido.Estado == 0 && pedido.Detalles.Any();
+    protected override string RolRequerido => "buyer";
+    protected override bool TieneCambios => false;
+    protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); }
+    private Task EnviarAsync() => !PuedeEnviar ? Task.CompletedTask
+        : GuardarEnServidorAsync(ct => Api.EnviarPedidoCompraAsync(pedido.Id, new RevisionDto { Revision = pedido.Revision }, ct));
+}

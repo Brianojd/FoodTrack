@@ -1,0 +1,17 @@
+@if (!string.IsNullOrWhiteSpace(Mensaje))
+{
+    <MudAlert Severity="Severity.Error" Class="my-3" role="alert">
+        @Mensaje
+        @if (!string.IsNullOrEmpty(TraceId))
+        {
+            <MudText Typo="Typo.caption" Class="d-block text-break">Referencia: @TraceId</MudText>
+        }
+        @if (Reintentar.HasDelegate) { <MudButton OnClick="Reintentar" Disabled="Ocupado">Actualizar datos</MudButton> }
+    </MudAlert>
+}
+@code {
+    [Parameter] public string Mensaje { get; set; } = "";
+    [Parameter] public string? TraceId { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Reintentar { get; set; }
+}

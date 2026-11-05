@@ -1,0 +1,10 @@
+:root {
+    --foodtrace-fondo: #F7F8FA;
+    --foodtrace-borde: #DDE5E0;
+    --foodtrace-seleccion: #E7F2EC;
+    --foodtrace-sombra: rgb(24 43 37 / 8%);
+    --foodtrace-bruma-verde: rgb(23 107 82 / 18%);
+    --foodtrace-bruma-petroleo: rgb(35 75 90 / 12%);
+    --foodtrace-bruma-dorada: rgb(217 154 41 / 13%);
+    --foodtrace-imagen-acceso: none;
+}
