@@ -15,7 +15,7 @@ if (args.Contains("--bootstrap"))
 }
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseHttpsRedirection();
-app.UseMiddleware<ErroresMiddleware>();
+app.UsarErroresFoodTrace();
 app.UseAuthentication();
 app.UseMiddleware<MembresiaMiddleware>();
 app.UseAuthorization();

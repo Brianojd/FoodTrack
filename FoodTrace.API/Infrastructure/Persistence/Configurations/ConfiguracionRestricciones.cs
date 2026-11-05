@@ -15,8 +15,16 @@ internal static class ConfiguracionRestricciones
             tabla.HasCheckConstraint("CK_PresentacionesProveedor_CantidadPositiva", Positivo("Cantidad"));
             tabla.HasCheckConstraint("CK_PresentacionesProveedor_CantidadBasePositiva", Positivo("CantidadBase"));
         });
-        modelo.Entity<VersionReceta>().ToTable(tabla => tabla.HasCheckConstraint(
-            "CK_VersionesReceta_RendimientoPositivo", Positivo("Rendimiento")));
+        modelo.Entity<VersionReceta>().ToTable(tabla =>
+        {
+            tabla.HasCheckConstraint("CK_VersionesReceta_RendimientoPositivo", Positivo("Rendimiento"));
+            tabla.HasCheckConstraint("CK_VersionesReceta_UnidadCantidadRendimiento",
+                "([CantidadRendimiento] IS NULL AND [UnidadRendimientoId] IS NULL) OR ([CantidadRendimiento] IS NOT NULL AND [UnidadRendimientoId] IS NOT NULL)");
+            tabla.HasCheckConstraint("CK_VersionesReceta_CantidadRendimiento",
+                "[CantidadRendimiento] IS NULL OR (" + Positivo("CantidadRendimiento") + " AND " + Decimal("CantidadRendimiento") + " <= 1000000000)");
+            tabla.HasCheckConstraint("CK_VersionesReceta_PorcionesRendimiento",
+                "[PorcionesRendimiento] IS NULL OR (" + Positivo("PorcionesRendimiento") + " AND " + Decimal("PorcionesRendimiento") + " <= 1000000000)");
+        });
         modelo.Entity<IngredienteReceta>().ToTable(tabla => tabla.HasCheckConstraint(
             "CK_IngredientesReceta_CantidadPositiva", Positivo("Cantidad")));
         modelo.Entity<OrdenProduccion>().ToTable(tabla => tabla.HasCheckConstraint(

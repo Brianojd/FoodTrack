@@ -1,6 +1,9 @@
 namespace FoodTrace.API.Application.Services;
 
-public sealed class ExcepcionRegla(string mensaje) : Exception(mensaje);
+public sealed class ExcepcionRegla(string mensaje, IDictionary<string, string[]>? errores = null) : Exception(mensaje)
+{
+    public IDictionary<string, string[]>? Errores { get; } = errores;
+}
 
 public static class Cantidades
 {
@@ -20,6 +23,14 @@ public static class Cantidades
     public static decimal Necesidad(decimal ingrediente, decimal factor, decimal factorBase,
         decimal rendimiento, decimal cantidadPlanificada) => Positiva(RedondearArriba(Positiva(ingrediente) * Positiva(factor)
             / Positiva(factorBase) * Positiva(cantidadPlanificada) / Positiva(rendimiento)));
+    // Las recetas consolidan cantidades exactas antes de redondear una única necesidad por producto.
+    public static decimal ConvertirExacto(decimal valor, string dimensionOrigen, decimal factorOrigen,
+        string dimensionDestino, decimal factorDestino)
+    {
+        if (dimensionOrigen != dimensionDestino) throw new ExcepcionRegla("Las unidades deben pertenecer a la misma magnitud.");
+        return Positiva(valor) * Positiva(factorOrigen) / Positiva(factorDestino);
+    }
+    public static decimal RedondearNecesidad(decimal valor) => Positiva(RedondearArriba(valor));
     public static decimal CantidadPresentaciones(decimal cantidad, decimal cantidadBase)
     {
         if (decimal.Truncate(cantidad) != cantidad) throw new ExcepcionRegla("Package count must be a whole number.");

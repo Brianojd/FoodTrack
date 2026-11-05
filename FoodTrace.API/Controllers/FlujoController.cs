@@ -63,26 +63,53 @@ public sealed class FlujoController(SesionEmpresa sesion, IServicioFlujo flujo,
     public async Task<ActionResult<VersionRecetaDto>> CrearVersionRecetaAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.CrearVersionRecetaAsync(id, entrada, cancelacion));
 
     [HttpGet("production")]
-    public async Task<ActionResult<List<OrdenProduccionDto>>> ObtenerProduccionAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerProduccionAsync(cancelacion));
+    public async Task<ActionResult<List<OrdenProduccionDto>>> ObtenerProduccionAsync(CancellationToken cancelacion = default)
+    {
+        var (alcance, propietarioId) = ResolverAlcance();
+        return Ok(await flujo.ObtenerProduccionAsync(alcance, propietarioId, cancelacion));
+    }
     [HttpGet("needs")]
-    public async Task<ActionResult<List<NecesidadIngredienteDto>>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerNecesidadesAsync(cancelacion));
+    public async Task<ActionResult<List<NecesidadIngredienteDto>>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default)
+    {
+        var (alcance, propietarioId) = ResolverAlcance();
+        return Ok(await flujo.ObtenerNecesidadesAsync(alcance, propietarioId, cancelacion));
+    }
     [HttpPost("production"), Authorize(Roles = "planner")]
     public async Task<ActionResult<OrdenProduccionDto>> PlanificarProduccionAsync(PlanificarProduccionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.PlanificarProduccionAsync(entrada, cancelacion));
 
     [HttpGet("purchases")]
-    public async Task<ActionResult<List<PedidoCompraDto>>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerPedidosCompraAsync(cancelacion));
-    [HttpPost("purchases"), Authorize(Roles = "buyer")]
+    public async Task<ActionResult<List<PedidoCompraDto>>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default)
+    {
+        var (alcance, propietarioId) = ResolverAlcance();
+        return Ok(await flujo.ObtenerPedidosCompraAsync(alcance, propietarioId, cancelacion));
+    }
+    [HttpPost("purchases"), Authorize(Roles = "buyer,admin")]
     public async Task<ActionResult<PedidoCompraDto>> CrearPedidoCompraAsync(CrearPedidoCompraDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.CrearPedidoCompraAsync(entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/lines"), Authorize(Roles = "buyer")]
-    public async Task<ActionResult<PedidoCompraDto>> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.AgregarDetalleCompraAsync(id, entrada, cancelacion));
-    [HttpPut("purchases/{id:guid}/lines/{lineId:guid}"), Authorize(Roles = "buyer")]
+    [HttpPost("purchases/{id:guid}/lines"), Authorize]
+    public async Task<ActionResult<PedidoCompraDto>> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default)
+    {
+        var (alcance, propietarioId) = ResolverAlcance();
+        if (!await flujo.PedidoEsVisibleAsync(id, alcance, propietarioId, cancelacion))
+            return NotFound();
+        if (!User.IsInRole(Roles.Administrador) && !User.IsInRole(Roles.Comprador))
+            return Forbid();
+        return Ok(await flujo.AgregarDetalleCompraAsync(id, entrada, cancelacion));
+    }
+    [HttpPut("purchases/{id:guid}/lines/{lineId:guid}"), Authorize(Roles = "buyer,admin")]
     public async Task<ActionResult<PedidoCompraDto>> ActualizarPresentacionesAsync(Guid id, [FromRoute(Name = "lineId")] Guid detalleId, ActualizarCantidadPresentacionesDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.ActualizarPresentacionesAsync(id, detalleId, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/lines/{lineId:guid}/remove"), Authorize(Roles = "buyer")]
+    [HttpPost("purchases/{id:guid}/lines/{lineId:guid}/remove"), Authorize(Roles = "buyer,admin")]
     public async Task<ActionResult<PedidoCompraDto>> RetirarDetalleCompraAsync(Guid id, [FromRoute(Name = "lineId")] Guid detalleId, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.RetirarDetalleCompraAsync(id, detalleId, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/submit"), Authorize(Roles = "buyer")]
+    [HttpPost("purchases/{id:guid}/submit"), Authorize(Roles = "buyer,admin")]
     public async Task<ActionResult<PedidoCompraDto>> EnviarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.EnviarPedidoCompraAsync(id, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/approve"), Authorize(Roles = "approver")]
+    [HttpPost("purchases/{id:guid}/approve"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> AprobarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.AprobarPedidoCompraAsync(id, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/reject"), Authorize(Roles = "approver")]
+    [HttpPost("purchases/{id:guid}/reject"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> RechazarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.RechazarPedidoCompraAsync(id, entrada, cancelacion));
+
+    private (AlcanceListado Alcance, string PropietarioId) ResolverAlcance()
+    {
+        if (User.IsInRole(Roles.Administrador) || User.IsInRole(Roles.Comprador))
+            return (AlcanceListado.Global, sesion.UsuarioId);
+        return (AlcanceListado.Propietario, sesion.UsuarioId);
+    }
 }

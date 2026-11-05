@@ -6,6 +6,12 @@ using FoodTrace.API.Dtos.Compras;
 
 namespace FoodTrace.API.Application.Interfaces;
 
+public enum AlcanceListado
+{
+    Global,
+    Propietario
+}
+
 public interface IServicioFlujo
 {
     Task<PresentacionProveedorDto> CrearPresentacionAsync(CrearPresentacionProveedorDto entrada, CancellationToken cancelacion = default);
@@ -14,10 +20,11 @@ public interface IServicioFlujo
     Task<VersionRecetaDto> ActualizarRecetaAsync(Guid id, ActualizarRecetaDto entrada, CancellationToken cancelacion = default);
     Task<VersionRecetaDto> PublicarRecetaAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default);
     Task<VersionRecetaDto> CrearVersionRecetaAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default);
-    Task<List<OrdenProduccionDto>> ObtenerProduccionAsync(CancellationToken cancelacion = default);
-    Task<List<NecesidadIngredienteDto>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default);
+    Task<List<OrdenProduccionDto>> ObtenerProduccionAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default);
+    Task<List<NecesidadIngredienteDto>> ObtenerNecesidadesAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default);
     Task<OrdenProduccionDto> PlanificarProduccionAsync(PlanificarProduccionDto entrada, CancellationToken cancelacion = default);
-    Task<List<PedidoCompraDto>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default);
+    Task<List<PedidoCompraDto>> ObtenerPedidosCompraAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default);
+    Task<bool> PedidoEsVisibleAsync(Guid id, AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default);
     Task<PedidoCompraDto> CrearPedidoCompraAsync(CrearPedidoCompraDto entrada, CancellationToken cancelacion = default);
     Task<PedidoCompraDto> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default);
     Task<PedidoCompraDto> ActualizarPresentacionesAsync(Guid id, Guid detalleId, ActualizarCantidadPresentacionesDto entrada, CancellationToken cancelacion = default);

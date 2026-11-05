@@ -7,6 +7,9 @@ public sealed class VersionReceta : EntidadEmpresa
     public string Nombre { get; set; } = "";
     public Guid ProductoResultadoId { get; set; }
     public decimal Rendimiento { get; set; }
+    public decimal? CantidadRendimiento { get; set; }
+    public string? UnidadRendimientoId { get; set; }
+    public decimal? PorcionesRendimiento { get; set; }
     public string Instrucciones { get; set; } = "";
     public bool Publicada { get; set; }
     public List<IngredienteReceta> Ingredientes { get; set; } = [];

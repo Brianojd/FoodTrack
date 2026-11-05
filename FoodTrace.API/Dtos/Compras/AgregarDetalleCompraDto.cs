@@ -13,5 +13,5 @@ public sealed class AgregarDetalleCompraDto
     [JsonPropertyName("packCount")]
     public decimal CantidadPresentaciones { get; set; }
     [JsonPropertyName("allocations")]
-    [ColeccionObligatoria] public AsignacionNecesidadEntradaDto[] Asignaciones { get; set; } = [];
+    public AsignacionNecesidadEntradaDto[] Asignaciones { get; set; } = [];
 }

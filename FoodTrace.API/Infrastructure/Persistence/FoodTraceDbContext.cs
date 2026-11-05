@@ -74,6 +74,22 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
                 var prior = await VersionesReceta.IgnoreQueryFilters().AsNoTracking().SingleAsync(x => x.Id == recipe.Id);
                 if (prior.Publicada) throw new ExcepcionRegla("Published recipes are immutable. Create a new draft version.");
             }
+            if (entry.Entity is VersionReceta version && entry.State != EntityState.Deleted)
+            {
+                Cantidades.Positiva(version.Rendimiento);
+                if (version.PorcionesRendimiento is { } porciones) Cantidades.Positiva(porciones);
+                if ((version.CantidadRendimiento is null) != (version.UnidadRendimientoId is null))
+                    throw new ExcepcionRegla("La cantidad y unidad de rendimiento deben informarse juntas.");
+                if (version.CantidadRendimiento is { } cantidad)
+                {
+                    var producto = await Productos.SingleAsync(x => x.Id == version.ProductoResultadoId);
+                    var unidad = await UnidadesMedida.SingleAsync(x => x.Id == version.UnidadRendimientoId);
+                    var unidadBase = await UnidadesMedida.SingleAsync(x => x.Id == producto.UnidadBaseId);
+                    var normalizado = Cantidades.Positiva(Cantidades.ConvertirExacto(cantidad, unidad.Dimension,
+                        unidad.FactorConversion, unidadBase.Dimension, unidadBase.FactorConversion));
+                    if (normalizado != version.Rendimiento) throw new ExcepcionRegla("El rendimiento no coincide con su cantidad y unidad.");
+                }
+            }
             if (entry.Entity is VersionReceta publishing && publishing.Publicada)
             {
                 publishing.Publicar();
@@ -126,8 +142,8 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
                     throw new ExcepcionRegla("Invalid whole-package snapshot.");
                 if (entry.State == EntityState.Added)
                 {
-                    if (line.Asignaciones.Count == 0 || line.Asignaciones.Sum(x => x.CantidadAsignada) != line.NecesidadBruta)
-                        throw new ExcepcionRegla("Line gross need must equal its saved allocations.");
+                if (line.Asignaciones.Count == 0 ? line.NecesidadBruta != 0 : line.Asignaciones.Sum(x => x.CantidadAsignada) != line.NecesidadBruta)
+                    throw new ExcepcionRegla("Line gross need must equal its saved allocations.");
                     var pack = await PresentacionesProveedor.SingleAsync(x => x.Id == line.PresentacionProveedorId);
                     var order = ChangeTracker.Entries<PedidoCompra>().Select(x => x.Entity).SingleOrDefault(x => x.Id == line.PedidoCompraId)
                         ?? await PedidosCompra.SingleAsync(x => x.Id == line.PedidoCompraId);

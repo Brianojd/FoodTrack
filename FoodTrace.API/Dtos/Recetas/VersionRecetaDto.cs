@@ -16,6 +16,12 @@ public sealed class VersionRecetaDto : EntidadEmpresaDto
     public Guid ProductoResultadoId { get; set; }
     [JsonPropertyName("yield")]
     public decimal Rendimiento { get; set; }
+    [JsonPropertyName("yieldQuantity")]
+    public decimal? CantidadRendimiento { get; set; }
+    [JsonPropertyName("yieldUnitId")]
+    public string? UnidadRendimientoId { get; set; }
+    [JsonPropertyName("yieldPortions")]
+    public decimal? PorcionesRendimiento { get; set; }
     [JsonPropertyName("instructions")]
     public string Instrucciones { get; set; } = string.Empty;
     [JsonPropertyName("published")]

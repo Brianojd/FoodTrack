@@ -26,4 +26,6 @@ public sealed class PedidoCompraDto : EntidadEmpresaDto
     public string? MotivoDecision { get; set; }
     [JsonPropertyName("lines")]
     public List<DetallePedidoCompraDto> Detalles { get; set; } = [];
+    [JsonPropertyName("partialView")]
+    public bool VistaParcial { get; set; }
 }

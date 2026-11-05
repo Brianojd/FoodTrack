@@ -361,3 +361,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Documentación interna de agentes, memoria y continuidad (solo local)
+.atl/
+AGENTS.md
+FOODTRACE_SEGUNDO_CEREBRO.md
+README.md
+docs/
+odd/

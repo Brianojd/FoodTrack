@@ -33,6 +33,8 @@ public static class MapeadorDtos
     {
         Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision, FamiliaRecetaId = entidad.FamiliaRecetaId, NumeroVersion = entidad.NumeroVersion, Nombre = entidad.Nombre,
         ProductoResultadoId = entidad.ProductoResultadoId, Rendimiento = entidad.Rendimiento, Instrucciones = entidad.Instrucciones, Publicada = entidad.Publicada,
+        CantidadRendimiento = entidad.CantidadRendimiento, UnidadRendimientoId = entidad.UnidadRendimientoId,
+        PorcionesRendimiento = entidad.PorcionesRendimiento,
         Ingredientes = entidad.Ingredientes.Select(ADto).ToList()
     };
     public static NecesidadIngredienteDto ADto(this NecesidadIngrediente entidad) => new()

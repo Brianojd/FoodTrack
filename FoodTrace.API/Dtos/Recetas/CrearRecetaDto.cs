@@ -14,6 +14,10 @@ public sealed class CrearRecetaDto
     public Guid ProductoResultadoId { get; set; }
     [JsonPropertyName("yield")]
     public decimal Rendimiento { get; set; }
+    [JsonPropertyName("yieldUnitId")]
+    public string? UnidadRendimientoId { get; set; }
+    [JsonPropertyName("yieldPortions")]
+    public decimal? PorcionesRendimiento { get; set; }
     [JsonPropertyName("instructions")]
     [Required] public string Instrucciones { get; set; } = string.Empty;
     [JsonPropertyName("ingredients")]

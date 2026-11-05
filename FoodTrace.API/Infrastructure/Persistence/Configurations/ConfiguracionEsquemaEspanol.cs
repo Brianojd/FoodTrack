@@ -20,7 +20,10 @@ internal static class ConfiguracionEsquemaEspanol
             (nameof(VersionReceta.FamiliaRecetaId), "FamiliaRecetaId"), (nameof(VersionReceta.NumeroVersion), "NumeroVersion"),
             (nameof(VersionReceta.Nombre), "Nombre"), (nameof(VersionReceta.ProductoResultadoId), "ProductoResultadoId"),
             (nameof(VersionReceta.Rendimiento), "Rendimiento"), (nameof(VersionReceta.Instrucciones), "Instrucciones"),
-            (nameof(VersionReceta.Publicada), "Publicada"));
+            (nameof(VersionReceta.Publicada), "Publicada"),
+            (nameof(VersionReceta.CantidadRendimiento), "CantidadRendimiento"),
+            (nameof(VersionReceta.UnidadRendimientoId), "UnidadRendimientoId"),
+            (nameof(VersionReceta.PorcionesRendimiento), "PorcionesRendimiento"));
         Tabla<IngredienteReceta>(modelo, "IngredientesReceta",
             (nameof(IngredienteReceta.VersionRecetaId), "VersionRecetaId"), (nameof(IngredienteReceta.ProductoId), "ProductoId"),
             (nameof(IngredienteReceta.UnidadMedidaId), "UnidadMedidaId"), (nameof(IngredienteReceta.Cantidad), "Cantidad"));

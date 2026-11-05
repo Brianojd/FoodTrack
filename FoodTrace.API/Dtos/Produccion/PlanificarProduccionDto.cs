@@ -13,7 +13,9 @@ public sealed class PlanificarProduccionDto
     [JsonPropertyName("quantity")]
     public decimal CantidadPlanificada { get; set; }
     [JsonPropertyName("unitId")]
-    [Required] public string UnidadMedidaId { get; set; } = string.Empty;
+    public string UnidadMedidaId { get; set; } = string.Empty;
+    [JsonPropertyName("byPortions")]
+    public bool PorPorciones { get; set; }
     [JsonPropertyName("date")]
     public DateOnly FechaPlanificada { get; set; }
 }

@@ -5,6 +5,7 @@ using FoodTrace.API.Infrastructure.Identity;
 using FoodTrace.API.Infrastructure.Configuration;
 using FoodTrace.API.Infrastructure.Validation;
 using FoodTrace.API.Infrastructure.Persistence;
+using FoodTrace.API.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ public static class RegistroServicios
 {
     public static IServiceCollection AgregarFoodTrace(this IServiceCollection servicios, IConfiguration configuracion)
     {
+        servicios.AgregarErroresFoodTrace();
         servicios.AddControllers(opciones =>
         {
             opciones.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;

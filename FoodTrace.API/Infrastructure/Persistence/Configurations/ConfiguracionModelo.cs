@@ -16,6 +16,8 @@ internal static class ConfiguracionModelo
         b.Entity<Producto>().Property(x => x.UnidadBaseId).HasMaxLength(32);
         b.Entity<PresentacionProveedor>().Property(x => x.UnidadMedidaId).HasMaxLength(32);
         b.Entity<IngredienteReceta>().Property(x => x.UnidadMedidaId).HasMaxLength(32);
+        b.Entity<VersionReceta>().Property(x => x.UnidadRendimientoId).HasMaxLength(32);
+        b.Entity<VersionReceta>().HasOne<UnidadMedida>().WithMany().HasForeignKey(x => x.UnidadRendimientoId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<NecesidadIngrediente>().Property(x => x.UnidadBaseId).HasMaxLength(32);
         b.Entity<DetallePedidoCompra>().Property(x => x.UnidadBaseId).HasMaxLength(32);
         ConfigurarEmpresa<Establecimiento>(b, context); ConfigurarEmpresa<Producto>(b, context); ConfigurarEmpresa<Proveedor>(b, context);
@@ -71,7 +73,7 @@ internal static class ConfiguracionModelo
         foreach (var entity in b.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
             {
-                if (property.ClrType == typeof(decimal)) { property.SetPrecision(18); property.SetScale(6); }
+                if (property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?)) { property.SetPrecision(18); property.SetScale(6); }
                 if (property.ClrType == typeof(string) && property.GetMaxLength() is null)
                     property.SetMaxLength(property.Name == nameof(VersionReceta.Instrucciones) ? 8000 : 500);
             }

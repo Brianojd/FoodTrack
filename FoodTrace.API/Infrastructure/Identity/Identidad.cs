@@ -10,8 +10,10 @@ public static class Roles
     public const string Administrador = "admin";
     public const string Planificador = "planner";
     public const string Comprador = "buyer";
+    public const string Operador = "operator";
+    // Aprobador se mantiene definido por trazabilidad; ya no forma parte del catálogo funcional.
     public const string Aprobador = "approver";
-    public static readonly string[] Todos = [Administrador, Planificador, Comprador, Aprobador];
+    public static readonly string[] Todos = [Administrador, Planificador, Comprador, Operador];
 }
 
 public sealed class SesionEmpresa(IHttpContextAccessor accesoContexto)

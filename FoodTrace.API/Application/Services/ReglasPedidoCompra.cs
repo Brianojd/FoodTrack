@@ -9,7 +9,7 @@ public static class ReglasPedidoCompra
     {
         switch (accion)
         {
-            case "submit" when pedido.Estado == EstadoPedidoCompra.Borrador && pedido.Detalles.Any(x => x.Asignaciones.Any(a => !a.Liberada)):
+            case "submit" when pedido.Estado == EstadoPedidoCompra.Borrador && pedido.Detalles.Any():
                 pedido.Estado = EstadoPedidoCompra.Enviado; pedido.EnviadoPorId = actorId; pedido.FechaEnvio = fecha; break;
             case "approve" when pedido.Estado == EstadoPedidoCompra.Enviado:
                 pedido.Estado = EstadoPedidoCompra.Aprobado; pedido.DecididoPorId = actorId; pedido.FechaDecision = fecha; break;
