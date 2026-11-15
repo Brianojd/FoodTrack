@@ -1,0 +1,43 @@
+<MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="1">
+    <MudText Typo="Typo.h6" HtmlTag="h2" id="inicio-planes">Planificaciones recientes</MudText>
+    @if (Ordenes.Count != 0)
+    {
+        <MudButton Href="/produccion?area=planificacion" Color="Color.Secondary" Size="Size.Small">Ver planificación</MudButton>
+    }
+</MudStack>
+@if (Ordenes.Count == 0)
+{
+    <MudText Typo="Typo.body2" role="status">Todavía no hay órdenes registradas.</MudText>
+}
+else
+{
+    <MudText Typo="Typo.caption">Hasta cinco órdenes por fecha de registro. No son existencias.</MudText>
+    <ol class="inicio-registros" aria-labelledby="inicio-planes" role="list">
+        @foreach (var orden in Ordenes.OrderByDescending(x => x.FechaCreacion).ThenBy(x => x.Id).Take(5))
+        {
+            <li class="inicio-registro" @key="orden.Id">
+                <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudStack Spacing="0" Class="inicio-detalle">
+                        <MudText Typo="Typo.body2"><strong>@(Datos.Establecimientos.FirstOrDefault(x => x.Id == orden.EstablecimientoId)?.Nombre ?? orden.EstablecimientoId.ToString())</strong></MudText>
+                        <MudText Typo="Typo.body2">@NombreVersion(orden.VersionRecetaId)</MudText>
+                        <MudText Typo="Typo.caption">Fecha planificada: @orden.FechaPlanificada.ToString("dd/MM/yyyy")</MudText>
+                        <MudText Typo="Typo.caption">Cantidad base guardada: @orden.CantidadPlanificada.ToString("G29") @Unidad(orden.VersionRecetaId)</MudText>
+                    </MudStack>
+                    <MudButton Href="@($"/produccion?area=planificacion&orden={orden.Id}")" Color="Color.Secondary" Size="Size.Small" aria-label="@($"Ver necesidades de la orden {orden.Id}")">Ver necesidades</MudButton>
+                </MudStack>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<OrdenProduccionDto> Ordenes { get; set; } = [];
+    [Parameter, EditorRequired] public List<VersionRecetaDto> Versiones { get; set; } = [];
+    [Parameter, EditorRequired] public CatalogosDto Datos { get; set; } = new();
+    private string NombreVersion(Guid id) => Versiones.FirstOrDefault(x => x.Id == id) is { } v ? $"{v.Nombre} · v{v.NumeroVersion}" : id.ToString();
+    private string Unidad(Guid id)
+    {
+        var producto = Versiones.FirstOrDefault(x => x.Id == id)?.ProductoResultadoId;
+        return Datos.Productos.FirstOrDefault(x => x.Id == producto)?.UnidadBaseId ?? "unidad base no disponible";
+    }
+}

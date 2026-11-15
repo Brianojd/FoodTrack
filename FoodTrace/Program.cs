@@ -1,6 +1,12 @@
 using FoodTrace.Components;
+using FoodTrace.Services.Api;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpClient("FoodTrace", cliente => cliente.BaseAddress =
+    new Uri(builder.Configuration["Api:BaseUrl"] ?? "https://localhost:7240/"));
+builder.Services.AgregarClienteFoodTrace();
+builder.Services.AddMudServices();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

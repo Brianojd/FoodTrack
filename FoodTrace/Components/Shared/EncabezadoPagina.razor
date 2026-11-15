@@ -1,0 +1,9 @@
+<div class="mb-4">
+    <MudText Typo="Typo.h4" HtmlTag="@HeadingTag">@Titulo</MudText>
+    @if (!string.IsNullOrWhiteSpace(Descripcion)) { <MudText Class="mt-2">@Descripcion</MudText> }
+</div>
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = "";
+    [Parameter] public string Descripcion { get; set; } = "";
+    [Parameter] public string HeadingTag { get; set; } = "h1";
+}

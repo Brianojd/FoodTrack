@@ -1,0 +1,22 @@
+<MudStack Spacing="2">
+    <MudText Typo="Typo.body2">Administrador no implica los permisos de planificador, comprador ni aprobador. Seleccione cada rol necesario.</MudText>
+    <EditForm Model="Modelo" id="@FormId" OnValidSubmit="() => Guardar.InvokeAsync()">
+        <DataAnnotationsValidator />
+        <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Usuario(Modelo)" />
+        <MudTextField Label="Correo electrónico" InputType="InputType.Email" @bind-Value="Modelo.Correo" For="() => Modelo.Correo" Disabled="Ocupado" autocomplete="off" />
+        <ValidationMessage For="() => Modelo.Correo" />
+        <MudTextField Label="Contraseña inicial" InputType="InputType.Password" @bind-Value="Modelo.Contrasena" For="() => Modelo.Contrasena" Disabled="Ocupado" autocomplete="new-password" />
+        <ValidationMessage For="() => Modelo.Contrasena" />
+        <SelectorRoles @bind-Roles="Modelo.Roles" Ocupado="Ocupado" />
+        <ValidationMessage For="() => Modelo.Roles" />
+        <ValidationSummary />
+        @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Ocupado" Class="mt-3">Crear usuario</MudButton> }
+    </EditForm>
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public FormularioUsuario Modelo { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+}

@@ -1,23 +1,84 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject ISesionFoodTrace Sesion
+@inject NavigationManager Navegacion
+@inject EstadoNavegacion EstadoNav
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+<MudThemeProvider Theme="TemaFoodTrace.Tema" IsDarkMode="false" ObserveSystemDarkModeChange="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudBreakpointProvider OnBreakpointChanged="CambiarBreakpoint" />
+<div class="foodtrace-root">
+<FondoFoodTrace />
+<div class="foodtrace-content">
+@if (Sesion.Identidad is null)
+{
+    <LayoutView Layout="typeof(LayoutAutenticacion)">
+        <FormularioAcceso Aviso="@Sesion.AvisoSesion" />
+    </LayoutView>
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="0" Dense="false">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" aria-label="Abrir o cerrar navegación" aria-expanded="@(abierto ? "true" : "false")" aria-controls="foodtrace-navigation" OnClick="() => abierto = !abierto" />
+            <MudText Typo="Typo.h6" HtmlTag="p">FoodTrace</MudText>
+            <MudSpacer />
+            <MudText Typo="Typo.body2" Class="mr-3 d-none d-md-block">@Sesion.Identidad.Correo</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" aria-label="Cerrar sesión" OnClick="Salir" />
+        </MudAppBar>
+        <MudDrawer @bind-Open="abierto" Variant="@(escritorio ? DrawerVariant.Persistent : DrawerVariant.Temporary)" Width="250px" Elevation="0" Class="foodtrace-sidebar" id="foodtrace-navigation">
+            <MudStack Spacing="1" Class="pa-4 foodtrace-user">
+                <MudText Typo="Typo.subtitle2">@Sesion.Identidad.Correo</MudText>
+                <MudText Typo="Typo.caption">@string.Join(" · ", Sesion.Identidad.Roles.Select(EtiquetaRol))</MudText>
+            </MudStack>
+            <MudDivider Class="flex-grow-0" />
+            <NavMenu />
+        </MudDrawer>
+        <MudMainContent role="main">
+            <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4 pa-md-6">
+                <CascadingValue Value="EstadoNav" IsFixed="true">
+                    <div @key="Sesion.VersionSesion">@Body</div>
+                </CascadingValue>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
 </div>
-
+</div>
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    Ocurrió un error inesperado. <a href="." class="reload">Volver a cargar</a>
 </div>
+
+@code {
+    private bool abierto;
+    private bool escritorio;
+    protected override void OnInitialized()
+    {
+        Sesion.SesionCambiada += CambiarSesion;
+        Navegacion.LocationChanged += CambiarUbicacion;
+    }
+    private void CambiarBreakpoint(Breakpoint breakpoint)
+    {
+        var nuevoEscritorio = breakpoint >= Breakpoint.Md && breakpoint <= Breakpoint.Xxl;
+        if (nuevoEscritorio != escritorio) { escritorio = nuevoEscritorio; abierto = escritorio; }
+    }
+    private void CambiarUbicacion(object? sender, LocationChangedEventArgs args)
+    {
+        if (EstadoNavegacion.CerrarDrawerAlNavegar(escritorio))
+            _ = InvokeAsync(() => { abierto = false; StateHasChanged(); });
+    }
+    private static string EtiquetaRol(string rol) => rol switch
+    {
+        "admin" => "Administrador", "planner" => "Planificador",
+        "buyer" => "Comprador", "approver" => "Aprobador", _ => rol
+    };
+    private void CambiarSesion() => _ = InvokeAsync(StateHasChanged);
+    private void Salir() { Sesion.CerrarSesion(); Navegacion.NavigateTo("/"); }
+    public void Dispose()
+    {
+        Sesion.SesionCambiada -= CambiarSesion;
+        Navegacion.LocationChanged -= CambiarUbicacion;
+    }
+}

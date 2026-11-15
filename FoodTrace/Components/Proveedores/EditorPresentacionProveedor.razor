@@ -1,0 +1,43 @@
+<MudStack Spacing="2">
+    <MudText Typo="Typo.body2">Seleccione un producto y una unidad de la misma dimensión. La cantidad base la determina la API.</MudText>
+    <EditForm Model="Modelo" id="@FormId" OnValidSubmit="GuardarCompatibleAsync">
+        <DataAnnotationsValidator />
+        <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Presentacion(Modelo)" />
+        <MudSelect T="Guid" Label="Proveedor" @bind-Value="Modelo.ProveedorId" For="() => Modelo.ProveedorId" Disabled="Ocupado">
+            @foreach (var proveedor in Datos.Proveedores) { <MudSelectItem Value="proveedor.Id">@proveedor.Nombre</MudSelectItem> }
+        </MudSelect>
+        <ValidationMessage For="() => Modelo.ProveedorId" />
+        <MudSelect T="Guid" Label="Producto" Value="Modelo.ProductoId" ValueChanged="CambiarProducto" For="() => Modelo.ProductoId" Disabled="Ocupado">
+            @foreach (var producto in Datos.Productos) { <MudSelectItem Value="producto.Id">@producto.Nombre</MudSelectItem> }
+        </MudSelect>
+        <ValidationMessage For="() => Modelo.ProductoId" />
+        <MudTextField Label="Nombre de la presentación" @bind-Value="Modelo.Nombre" For="() => Modelo.Nombre" Disabled="Ocupado" />
+        <ValidationMessage For="() => Modelo.Nombre" />
+        <MudSelect T="string" Label="Unidad del contenido" @bind-Value="Modelo.UnidadMedidaId" For="() => Modelo.UnidadMedidaId" Disabled="@(Ocupado || Modelo.ProductoId == Guid.Empty)">
+            @foreach (var unidad in UnidadesCompatibles) { <MudSelectItem T="string" Value="@unidad.Id">@unidad.Id</MudSelectItem> }
+        </MudSelect>
+        <ValidationMessage For="() => Modelo.UnidadMedidaId" />
+        <MudNumericField T="decimal" Label="Contenido por presentación" @bind-Value="Modelo.Cantidad" For="() => Modelo.Cantidad" Disabled="Ocupado" Min="0m" />
+        <ValidationMessage For="() => Modelo.Cantidad" />
+        <ValidationSummary />
+        @if (!string.IsNullOrEmpty(errorUnidad)) { <MudAlert Severity="Severity.Error" role="alert">@errorUnidad</MudAlert> }
+        @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Ocupado || Datos.Productos.Count == 0 || Datos.Proveedores.Count == 0)" Class="mt-3">Crear presentación</MudButton> }
+    </EditForm>
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public FormularioPresentacion Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Datos { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+    private string errorUnidad = "";
+    private IEnumerable<UnidadMedidaDto> UnidadesCompatibles => CompatibilidadUnidades.ParaProducto(Datos, Modelo.ProductoId);
+    private void CambiarProducto(Guid id) { Modelo.ProductoId = id; Modelo.UnidadMedidaId = ""; errorUnidad = ""; }
+    private async Task GuardarCompatibleAsync()
+    {
+        errorUnidad = "";
+        if (!UnidadesCompatibles.Any(x => x.Id == Modelo.UnidadMedidaId)) { errorUnidad = "Seleccione una unidad compatible con la unidad base del producto."; return; }
+        await Guardar.InvokeAsync();
+    }
+}

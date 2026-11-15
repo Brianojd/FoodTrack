@@ -1,0 +1,31 @@
+<MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="1">
+    <MudText Typo="Typo.h6" HtmlTag="h2" id="inicio-pedidos">Pedidos recientes</MudText>
+    @if (Pedidos.Count != 0)
+    {
+        <MudButton Href="/compras?area=pedidos" Color="Color.Secondary" Size="Size.Small">Ver pedidos</MudButton>
+    }
+</MudStack>
+@if (Pedidos.Count == 0) { <MudText Typo="Typo.body2" role="status">Todavía no hay pedidos registrados.</MudText> }
+else
+{
+    <MudText Typo="Typo.caption">Hasta cinco registros por fecha de creación, no de recepción.</MudText>
+    <ol class="inicio-registros" aria-labelledby="inicio-pedidos" role="list">
+        @foreach (var pedido in Pedidos.OrderByDescending(x => x.FechaCreacion).ThenBy(x => x.Id).Take(5))
+        {
+            <li class="inicio-registro" @key="pedido.Id">
+                <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudStack Spacing="0" Class="inicio-detalle">
+                        <MudText Typo="Typo.body2"><strong>@(Proveedores.FirstOrDefault(x => x.Id == pedido.ProveedorId)?.Nombre ?? pedido.ProveedorId.ToString())</strong></MudText>
+                        <MudText Typo="Typo.caption">Creación: @pedido.FechaCreacion.ToString("dd/MM/yyyy HH:mm zzz")</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.body2">@EstadoCompras.NombreEstado(pedido.Estado)</MudText>
+                </MudStack>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<PedidoCompraDto> Pedidos { get; set; } = [];
+    [Parameter, EditorRequired] public List<NombreDto> Proveedores { get; set; } = [];
+}

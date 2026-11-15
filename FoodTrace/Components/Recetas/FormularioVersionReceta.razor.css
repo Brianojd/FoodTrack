@@ -1,0 +1,21 @@
+.receta-formulario {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The scope lives inside dialog content, not on the page behind its portal. */
+.receta-formulario ::deep .mud-grid-item {
+    min-width: 0;
+}
+
+.receta-formulario ::deep button:focus-visible,
+.receta-formulario ::deep input:focus-visible,
+.receta-formulario ::deep textarea:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 3px;
+}
+
+.receta-formulario ::deep .mud-button-root {
+    white-space: normal;
+    max-width: 100%;
+}

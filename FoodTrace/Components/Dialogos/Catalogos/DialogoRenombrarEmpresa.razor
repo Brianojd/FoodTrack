@@ -1,0 +1,16 @@
+@inherits DialogoEdicionBase
+@inject ICatalogosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <EditorEstablecimiento Modelo="Modelo" Etiqueta="Nombre de la empresa" FormId="FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public FormularioNombre Modelo { get; set; } = new();
+    private string nombreInicial = "";
+    protected override bool TieneCambios => Modelo.Nombre != nombreInicial;
+    protected override void OnInitialized() { base.OnInitialized(); nombreInicial = Modelo.Nombre; }
+    private Task GuardarAsync() => RevisarGuardadoAsync(
+        ct => Api.ActualizarEmpresaAsync(new ActualizarEmpresaDto { Nombre = Modelo.Nombre.Trim() }, ct),
+        $"Se cambiará el nombre de la empresa de «{nombreInicial}» a «{Modelo.Nombre.Trim()}». Este cambio será visible para sus miembros.");
+}

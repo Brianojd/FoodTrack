@@ -1,0 +1,48 @@
+@implements IDisposable
+@inject ISesionFoodTrace Sesion
+
+<PageTitle>Acceso · FoodTrace</PageTitle>
+<div class="acceso-formulario">
+<MudStack Spacing="6">
+    <MudStack Spacing="1" Class="acceso-introduccion">
+        <MudText Typo="Typo.h5" HtmlTag="h1" Class="acceso-titulo">Iniciar sesión</MudText>
+        <MudText Class="acceso-ayuda">Ingresá con tu cuenta de empresa.</MudText>
+    </MudStack>
+    @if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Info" role="status">@Aviso</MudAlert> }
+    <MensajeError Mensaje="@error" />
+    <EditForm Model="modelo" OnValidSubmit="IngresarAsync">
+        <DataAnnotationsValidator />
+        <MudStack Spacing="6">
+            <MudStack Spacing="4">
+                <MudTextField T="string" Label="Correo electrónico" @bind-Value="modelo.Correo" For="() => modelo.Correo" Variant="Variant.Outlined" InputType="InputType.Email" autocomplete="username" Disabled="ocupado" FullWidth="true" />
+                <MudTextField T="string" Label="Contraseña" @bind-Value="modelo.Contrasena" For="() => modelo.Contrasena" Immediate="true" Variant="Variant.Outlined" InputType="@(mostrarContrasena ? InputType.Text : InputType.Password)" autocomplete="current-password" Disabled="ocupado" FullWidth="true"
+                              Adornment="Adornment.End" AdornmentIcon="@(mostrarContrasena ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)" OnAdornmentClick="AlternarContrasena" AdornmentAriaLabel="@(mostrarContrasena ? "Ocultar contraseña" : "Mostrar contraseña")" />
+            </MudStack>
+            <ValidationSummary />
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Class="acceso-enviar" FullWidth="true" Disabled="ocupado">@(ocupado ? "Ingresando…" : "Ingresar")</MudButton>
+        </MudStack>
+    </EditForm>
+    @if (ocupado) { <EstadoCarga Mensaje="Comprobando acceso…" /> }
+</MudStack>
+</div>
+
+@code {
+    [Parameter] public string Aviso { get; set; } = "";
+    private readonly FormularioIngreso modelo = new();
+    private string error = "";
+    private bool ocupado;
+    private bool mostrarContrasena;
+    private void AlternarContrasena() => mostrarContrasena = !mostrarContrasena;
+    private readonly CancellationTokenSource cancelacion = new();
+    private async Task IngresarAsync()
+    {
+        if (ocupado) return;
+        ocupado = true; error = "";
+        try { await Sesion.IniciarSesionAsync(new IniciarSesionDto { Correo = modelo.Correo.Trim(), Contrasena = modelo.Contrasena }, cancelacion.Token); }
+        catch (OperationCanceledException) { }
+        catch (ExcepcionApi ex) { error = ex.Message; }
+        catch (Exception) { error = "No se pudo iniciar sesión. Compruebe la conexión y vuelva a intentarlo."; }
+        finally { modelo.Contrasena = ""; mostrarContrasena = false; ocupado = false; }
+    }
+    public void Dispose() { modelo.Contrasena = ""; cancelacion.Cancel(); cancelacion.Dispose(); }
+}

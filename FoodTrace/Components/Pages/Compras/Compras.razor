@@ -1,0 +1,161 @@
+@page "/compras"
+@inherits PaginaAdministrativa
+@inject NavigationManager Navegacion
+
+<PageTitle>Compras · FoodTrace</PageTitle>
+<EncabezadoPagina Titulo="Compras" Descripcion="Pedidos y órdenes esperadas persistidas por la API. No representa stock, lotes ni recepción física." />
+<MudTabs ActivePanelIndex="indiceArea" ActivePanelIndexChanged="CambiarArea" KeepPanelsAlive="true" LazyLoadPanels="true" TabPanelsClass="pt-4" Elevation="0" Rounded="true">
+<MudTabPanel Text="Pedidos">
+<MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (!ModuloHabilitado) { <MudAlert Severity="Severity.Info" role="status" Class="mb-4">Su rol no tiene acceso a compras. Consulte a un administrador si necesita gestionar pedidos.</MudAlert> }
+@if (Ocupado && Estado.Catalogos is null) { <EstadoCarga /> }
+@if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+<MudPaper Class="pa-6" Outlined="true" Elevation="0">
+<MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-4">
+    @if (PuedeComprar)
+    {
+        <MudButton @ref="botonCrear" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Ocupado || Estado.Catalogos is null || Estado.Catalogos.Proveedores.Count == 0 || Estado.Catalogos.Establecimientos.Count == 0)" OnClick="CrearAsync" StartIcon="@Icons.Material.Filled.Add">Crear pedido</MudButton>
+    }
+    <MudButton @ref="botonActualizar" Disabled="Ocupado" OnClick="ActualizarAsync" StartIcon="@Icons.Material.Filled.Refresh">Actualizar listas sin descartar borradores</MudButton>
+    <MudButton Disabled="Ocupado" OnClick="() => ActualizarNecesidadesGuardadasAsync()">Actualizar necesidades</MudButton>
+    <MudButton Disabled="@(Ocupado || Estado.Catalogos is null || Estado.NecesidadesDesactualizadas)" OnClick="PrepararPropuesta" StartIcon="@Icons.Material.Filled.AutoAwesome">Preparar propuesta</MudButton>
+</MudStack>
+@if (Estado.NecesidadesDesactualizadas) { <MudAlert Severity="Severity.Warning" Class="mb-4">Las necesidades requieren una consulta nueva. No se permiten nuevas asignaciones hasta actualizarlas; no repita las escrituras ya confirmadas.</MudAlert> }
+@if (propuesta is not null && Estado.Catalogos is not null)
+{
+    <MudPaper Outlined="true" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6">Propuesta de compra</MudText>
+        <MudText Typo="Typo.body2" Class="mb-3">Revise los faltantes, proveedor y presentación. Crear borradores no envía pedidos.</MudText>
+        <MudSelect T="Guid" Label="Establecimiento destino" @bind-Value="propuesta.EstablecimientoId" Disabled="Ocupado" Class="mb-3">
+            <MudSelectItem T="Guid" Value="@Guid.Empty">Seleccione un destino</MudSelectItem>
+            @foreach (var establecimiento in Estado.Catalogos.Establecimientos) { <MudSelectItem T="Guid" Value="establecimiento.Id">@establecimiento.Nombre</MudSelectItem> }
+        </MudSelect>
+        <MudTable Items="propuesta.Lineas" Hover="true" Elevation="0">
+            <HeaderContent><MudTh>Incluir</MudTh><MudTh>Producto</MudTh><MudTh>Faltante</MudTh><MudTh>Proveedor / presentación</MudTh><MudTh>Presentaciones</MudTh><MudTh>Cubierto</MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd><MudCheckBox @bind-Value="context.Incluida" Disabled="Ocupado" /></MudTd>
+                <MudTd DataLabel="Producto">@context.NombreProducto (@context.UnidadBaseId)</MudTd>
+                <MudTd DataLabel="Faltante">@context.Faltante</MudTd>
+                <MudTd DataLabel="Proveedor / presentación">
+                    <MudSelect T="Guid" Value="context.PresentacionId" ValueChanged="context.SeleccionarPresentacion" Disabled="Ocupado || context.Opciones.Count == 0">
+                        @foreach (var opcion in context.Opciones)
+                        {
+                            <MudSelectItem T="Guid" Value="opcion.Id">@(Estado.Catalogos.Proveedores.FirstOrDefault(x => x.Id == opcion.ProveedorId)?.Nombre ?? opcion.ProveedorId.ToString()) · @opcion.Nombre (@opcion.CantidadBase @opcion.UnidadMedidaId)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    @if (context.Opciones.Count == 0) { <MudText Color="Color.Error">Sin presentaciones compatibles</MudText> }
+                </MudTd>
+                <MudTd DataLabel="Presentaciones"><MudNumericField T="decimal" @bind-Value="context.CantidadPresentaciones" Min="0" Disabled="Ocupado || context.PresentacionId == Guid.Empty" /></MudTd>
+                <MudTd DataLabel="Cubierto">@context.CantidadCubierta</MudTd>
+            </RowTemplate>
+        </MudTable>
+        <MudButton Class="mt-3" Disabled="@(Ocupado || propuesta.EstablecimientoId == Guid.Empty || !propuesta.Lineas.Any(x => x.Incluida && x.PresentacionId != Guid.Empty))" OnClick="CrearBorradoresPropuestaAsync" Variant="Variant.Filled" Color="Color.Primary">Crear borradores</MudButton>
+    </MudPaper>
+}
+@if (Estado.Catalogos is not null)
+{
+    @if (Estado.Pedidos.Count == 0) { <EstadoVacio Mensaje="Todavía no hay pedidos de compra guardados." /> }
+    else
+    {
+        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-3">
+            <MudTextField T="string" @bind-Value="busquedaPedidos" @bind-Value:after="ReiniciarPaginaPedidos" Label="Buscar en registros cargados" HelperText="Pedido, proveedor o estado · búsqueda local" Immediate="true" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+            <MudSelect T="bool" @bind-Value="proveedorDescendente" @bind-Value:after="ReiniciarPaginaPedidos" Label="Ordenar pedidos">
+                <MudSelectItem Value="false">Proveedor A–Z</MudSelectItem>
+                <MudSelectItem Value="true">Proveedor Z–A</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="int" @bind-Value="tamanoPaginaPedidos" @bind-Value:after="ReiniciarPaginaPedidos" Label="Filas por página">
+                <MudSelectItem Value="10">10</MudSelectItem>
+                <MudSelectItem Value="25">25</MudSelectItem>
+                <MudSelectItem Value="50">50</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+        <MudTable Items="PedidosFiltrados" @bind-CurrentPage="paginaPedidos" RowsPerPage="tamanoPaginaPedidos" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+            <HeaderContent><MudTh>Pedido</MudTh><MudTh>Proveedor</MudTh><MudTh>Destino</MudTh><MudTh>Estado</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Pedido">@context.Id</MudTd><MudTd DataLabel="Proveedor">@(Estado.Catalogos.Proveedores.FirstOrDefault(x => x.Id == context.ProveedorId)?.Nombre ?? context.ProveedorId.ToString())</MudTd>
+                <MudTd DataLabel="Destino">@NombreDestino(context)</MudTd>
+                <MudTd DataLabel="Estado">@EstadoCompras.NombreEstado(context.Estado)</MudTd>
+                <MudTd DataLabel="Acciones"><MudButton Disabled="Ocupado" OnClick="() => SeleccionarAsync(context)" aria-label="@($"Consultar pedido {context.Id}")">Consultar pedido</MudButton></MudTd>
+            </RowTemplate>
+            <NoRecordsContent><MudText>No hay coincidencias. Borre la búsqueda para ver los pedidos cargados. El formulario seleccionado se conserva.</MudText></NoRecordsContent>
+            <PagerContent><MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}–{last_item} de {all_items}" /></PagerContent>
+        </MudTable>
+    }
+    @if (Estado.Seleccionado is { } pedido)
+    {
+        <MudButton Disabled="Ocupado" OnClick="RevisarAsync">Consultar versión actual sin adoptar su revisión</MudButton>
+        <MudButton Disabled="Ocupado" OnClick="RecargarAsync">Confirmar descarte y recargar pedido</MudButton>
+        <VistaPedidoCompra Pedido="pedido" Catalogos="Estado.Catalogos" Necesidades="Estado.Necesidades" PuedeEditar="PuedeComprar" Ocupado="Ocupado" Editar="EditarCantidadAsync" Retirar="RetirarAsync" FocoAlternativo="SolicitarFocoAlternativo" />
+        @if (PuedeComprar && pedido.OrdenRecepcionId is null && pedido.Estado is 0 or 1)
+        {
+            <MudPaper Outlined="true" Class="pa-4 my-4">
+                <MudText Typo="Typo.h6" HtmlTag="h3">Destino de la compra</MudText>
+                <MudSelect T="Guid" Label="Establecimiento destino" @bind-Value="Estado.DestinoEdicionId" Disabled="Ocupado">
+                    <MudSelectItem T="Guid" Value="@Guid.Empty">Seleccione un destino</MudSelectItem>
+                    @foreach (var establecimiento in Estado.Catalogos.Establecimientos) { <MudSelectItem T="Guid" Value="establecimiento.Id">@establecimiento.Nombre</MudSelectItem> }
+                </MudSelect>
+                <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mt-3">
+                    <MudButton Disabled="@(Ocupado || !Estado.DestinoSinGuardar || Estado.DestinoEdicionId == Guid.Empty)" OnClick="GuardarDestinoAsync" Variant="Variant.Outlined" Color="Color.Primary">Guardar destino</MudButton>
+                    @if (pedido.Estado == 1)
+                    {
+                        <MudButton Disabled="@(Ocupado || pedido.EstablecimientoId is null || Estado.DestinoSinGuardar)" OnClick="GenerarOrdenRecepcionAsync" Variant="Variant.Filled" Color="Color.Secondary">Generar orden de recepción</MudButton>
+                    }
+                </MudStack>
+                @if (pedido.Estado == 1) { <MudText Typo="Typo.body2" Class="mt-2">La generación es una acción explícita para esta compra enviada legacy. Crea expectativa de recepción, nunca stock ni lotes.</MudText> }
+            </MudPaper>
+        }
+        @if (pedido.Estado == 0 && PuedeComprar)
+        {
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="my-4">
+                <MudButton @ref="botonAgregar" Disabled="@(Ocupado || Estado.NecesidadesDesactualizadas || !Estado.Catalogos.Presentaciones.Any(x => x.ProveedorId == pedido.ProveedorId))" Variant="Variant.Filled" Color="Color.Primary" OnClick="AgregarAsync">Agregar detalle</MudButton>
+                <MudButton @ref="botonEnviar" Disabled="@(Ocupado || HayDetalleSinGuardar || Estado.DestinoSinGuardar || pedido.EstablecimientoId is null || !pedido.Detalles.Any())" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="EnviarAsync">Enviar pedido</MudButton>
+            </MudStack>
+        }
+        @if (HayDetalleSinGuardar)
+        {
+            <MudAlert Severity="Severity.Info">Se conserva un borrador local anterior. Agregar detalle reutiliza su copia; descártelo explícitamente si ya no lo necesita. No se envía junto con comandos sobre la revisión guardada.</MudAlert>
+            <MudButton Disabled="Ocupado" OnClick="DescartarDetalleAsync">Descartar borradores locales anteriores</MudButton>
+        }
+    }
+    @if (revisionServidor is not null)
+    {
+        <MudAlert Severity="Severity.Info">Consulta actual del servidor · solo lectura. Su formulario y su revisión original no se modificaron.</MudAlert>
+        <VistaPedidoCompra Pedido="revisionServidor" Catalogos="Estado.Catalogos" Necesidades="Estado.Necesidades" />
+    }
+}
+</MudPaper>
+
+</MudTabPanel>
+<MudTabPanel Text="Proveedores y presentaciones">
+    <FoodTrace.Components.Pages.Proveedores.Proveedores EnContenedor="true" />
+</MudTabPanel>
+</MudTabs>
+
+@code {
+    [CascadingParameter] public EstadoNavegacion? EstadoNav { get; set; }
+    [SupplyParameterFromQuery(Name = "area")] public string? Area { get; set; }
+    private int indiceArea;
+    protected override void OnParametersSet()
+    {
+        var area = EstadoNav?.ResolverArea("compras", Area) ?? (Area == "proveedores" ? "proveedores" : "pedidos");
+        indiceArea = Array.IndexOf(EstadoNavegacion.Areas("compras"), area);
+        if (EstadoNav is not null && Area != area)
+            Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "compras", area), replace: true);
+        AjustarPaginaPedidos();
+    }
+    private void CambiarArea(int indice)
+    {
+        if (indiceArea == indice) return;
+        indiceArea = indice;
+        Navegacion.NavigateTo(EstadoNavegacion.RutaArea(Navegacion.Uri, "compras", EstadoNavegacion.Areas("compras")[indice]));
+    }
+    private string busquedaPedidos = "";
+    private bool proveedorDescendente;
+    private int paginaPedidos;
+    private int tamanoPaginaPedidos = 10;
+    private void ReiniciarPaginaPedidos() => paginaPedidos = 0;
+    private string NombreProveedor(PedidoCompraDto pedido) => Estado.Catalogos?.Proveedores.FirstOrDefault(x => x.Id == pedido.ProveedorId)?.Nombre ?? pedido.ProveedorId.ToString();
+    private string NombreDestino(PedidoCompraDto pedido) => pedido.EstablecimientoId is { } id ? Estado.Catalogos?.Establecimientos.FirstOrDefault(x => x.Id == id)?.Nombre ?? id.ToString() : "Sin destino";
+    private IEnumerable<PedidoCompraDto> PedidosFiltrados => proveedorDescendente ? PedidosCoincidentes.OrderByDescending(NombreProveedor, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Id) : PedidosCoincidentes.OrderBy(NombreProveedor, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Id);
+    private IEnumerable<PedidoCompraDto> PedidosCoincidentes => Estado.Pedidos.Where(x => $"{x.Id} {NombreProveedor(x)} {EstadoCompras.NombreEstado(x.Estado)}".Contains(busquedaPedidos?.Trim() ?? "", StringComparison.CurrentCultureIgnoreCase));
+}

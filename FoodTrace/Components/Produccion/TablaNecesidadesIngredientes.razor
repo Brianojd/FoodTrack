@@ -1,0 +1,17 @@
+@if (Necesidades.Count == 0) { <EstadoVacio Mensaje="No hay necesidades brutas guardadas para esta consulta." /> }
+else
+{
+    <MudTable Items="Necesidades" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Producto</MudTh><MudTh>Necesidad bruta guardada</MudTh><MudTh>Asignado a compras</MudTh><MudTh>Orden de producción</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Producto">@(Catalogos.Productos.FirstOrDefault(x => x.Id == context.ProductoId)?.Nombre ?? context.ProductoId.ToString())</MudTd>
+            <MudTd DataLabel="Necesidad bruta guardada">@context.CantidadNecesaria @context.UnidadBaseId</MudTd>
+            <MudTd DataLabel="Asignado a compras">@context.CantidadAsignada @context.UnidadBaseId</MudTd>
+            <MudTd DataLabel="Orden de producción"><MudLink Href="@($"/produccion?orden={context.OrdenProduccionId}")" aria-label="@($"Consultar orden de producción {context.OrdenProduccionId}")">@context.OrdenProduccionId</MudLink></MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+@code {
+    [Parameter] public List<NecesidadIngredienteDto> Necesidades { get; set; } = [];
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+}

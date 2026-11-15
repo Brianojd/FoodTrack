@@ -1,0 +1,16 @@
+@inherits DialogoEdicionBase
+@inject ICatalogosFoodTrace Api
+
+<MarcoDialogoEdicion Control="this">
+    <MudText Typo="Typo.body2" Class="mb-3">La unidad base queda fijada al crear el producto y no puede modificarse después.</MudText>
+    <EditorProducto Modelo="Modelo" Unidades="Unidades" FormId="@FormId" AccionesExternas="true" Ocupado="Bloqueado" Guardar="GuardarAsync" />
+</MarcoDialogoEdicion>
+
+@code {
+    [Parameter] public FormularioProducto Modelo { get; set; } = new();
+    [Parameter] public List<UnidadMedidaDto> Unidades { get; set; } = [];
+    private string nombreInicial = "", unidadInicial = "";
+    protected override bool TieneCambios => Modelo.Nombre != nombreInicial || Modelo.UnidadBaseId != unidadInicial;
+    protected override void OnInitialized() { base.OnInitialized(); nombreInicial = Modelo.Nombre; unidadInicial = Modelo.UnidadBaseId; }
+    private Task GuardarAsync() => GuardarEnServidorAsync(ct => Api.CrearProductoAsync(new CrearProductoDto { Nombre = Modelo.Nombre.Trim(), UnidadBaseId = Modelo.UnidadBaseId }, ct));
+}

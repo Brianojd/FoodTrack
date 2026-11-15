@@ -1,0 +1,148 @@
+@implements IDisposable
+@if (Version?.Publicada == true || !PuedeEditar)
+{
+    @if (Version is not null) { <VistaVersionReceta Version="Version" Catalogos="Catalogos" /> }
+    else { <EstadoVacio Mensaje="Seleccione una versión para consultar su contenido." /> }
+}
+else
+{
+    <div class="receta-formulario">
+        <EditForm EditContext="contexto" id="@FormId" OnValidSubmit="GuardarValidoAsync">
+            <DataAnnotationsValidator />
+            <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Receta(Modelo)" />
+            <MudText Typo="Typo.subtitle1" HtmlTag="h3" Class="mb-3">Identidad y rendimiento</MudText>
+            @if (Catalogos.Productos.Count == 0) { <MudText Typo="Typo.body2" role="status">No hay productos disponibles en el catálogo de esta empresa.</MudText> }
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mb-2">
+                @if (PuedeAdministrar) { <MudButton Disabled="Ocupado" OnClick="() => CrearProducto.InvokeAsync(null)">Crear producto elaborado</MudButton> }
+                else { <MudText Typo="Typo.caption">Si falta un producto, solicite su registro a un administrador.</MudText> }
+                <MudButton Disabled="Ocupado" OnClick="ActualizarCatalogo">Actualizar catálogo sin perder el formulario</MudButton>
+            </MudStack>
+            <MudGrid Spacing="2">
+                <MudItem xs="12">
+                    <MudTextField Label="Nombre de la receta" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.Nombre" @bind-Value:after="NotificarAsync" For="() => Modelo.Nombre" Disabled="Ocupado" Immediate="true" />
+                    <ValidationMessage For="() => Modelo.Nombre" />
+                </MudItem>
+                <MudItem xs="12" sm="8">
+                    <MudAutocomplete T="Guid?" Label="Producto elaborado" Placeholder="Seleccione un producto elaborado" Variant="Variant.Outlined" Margin="Margin.Dense"
+                        Value="@(Modelo.ProductoResultadoId == Guid.Empty ? (Guid?)null : Modelo.ProductoResultadoId)" ValueChanged="CambiarProductoAsync"
+                        SearchFunc="BuscarAsync" ToStringFunc="NombreProducto" Clearable="true" ResetValueOnEmptyText="true" CoerceValue="false" MinCharacters="0" MaxItems="100" Disabled="Ocupado" />
+                    <ValidationMessage For="() => Modelo.ProductoResultadoId" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="decimal" Label="Rendimiento" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.Rendimiento" @bind-Value:after="NotificarAsync" For="() => Modelo.Rendimiento" Disabled="Ocupado" Min="0m" Culture="cultura" Format="0.######" Immediate="true" />
+                    <ValidationMessage For="() => Modelo.Rendimiento" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" Label="Unidad del rendimiento" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.UnidadRendimientoId" @bind-Value:after="NotificarAsync" For="() => Modelo.UnidadRendimientoId" Disabled="@(Ocupado || Modelo.ProductoResultadoId == Guid.Empty)">
+                        @foreach (var unidad in CompatibilidadUnidades.ParaProducto(Catalogos, Modelo.ProductoResultadoId)) { <MudSelectItem T="string" Value="@unidad.Id">@unidad.Id</MudSelectItem> }
+                    </MudSelect>
+                    <ValidationMessage For="() => Modelo.UnidadRendimientoId" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="decimal?" Label="Porciones del rendimiento (opcional)" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.PorcionesRendimiento" @bind-Value:after="NotificarAsync" For="() => Modelo.PorcionesRendimiento" Disabled="Ocupado" Culture="cultura" Format="0.######" Immediate="true" />
+                    <ValidationMessage For="() => Modelo.PorcionesRendimiento" />
+                </MudItem>
+            </MudGrid>
+            <MudText Typo="Typo.body2" Class="d-block mt-2">Estas cantidades de ingredientes producen @Modelo.Rendimiento.ToString("0.######", cultura) @Modelo.UnidadRendimientoId de @(NombreProducto(Modelo.ProductoResultadoId)).@(Modelo.PorcionesRendimiento is { } porciones ? $" Equivalen a {porciones.ToString("0.######", cultura)} porciones de esta receta." : " Sin equivalencia de porciones definida.")</MudText>
+            <MudDivider Class="my-4" />
+            <EditorIngredientesReceta Ingredientes="Modelo.Ingredientes" Catalogos="Catalogos" Ocupado="Ocupado" Cambiado="NotificarAsync" PuedeAdministrar="PuedeAdministrar" CrearProducto="CrearProducto" />
+            <ValidationMessage For="() => Modelo.Ingredientes" />
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.subtitle1" HtmlTag="h3" Class="mb-2">Preparación</MudText>
+            <MudTextField Label="Instrucciones de preparación" Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="Modelo.Instrucciones" @bind-Value:after="NotificarAsync" For="() => Modelo.Instrucciones" Lines="4" Disabled="Ocupado" Immediate="true" />
+            <ValidationMessage For="() => Modelo.Instrucciones" />
+            <ValidationSummary />
+            @foreach (var error in errores) { <MudAlert Severity="Severity.Error" role="alert" Class="my-2">@error</MudAlert> }
+            @if (!Listo) { <MudText Typo="Typo.caption" role="status">Para guardar: @Modelo.Validar(Catalogos).FirstOrDefault()</MudText> }
+            @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" Disabled="@(Ocupado || !Listo)">Guardar borrador</MudButton> }
+        </EditForm>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ModeloVersionReceta Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public VersionRecetaDto? Version { get; set; }
+    [Parameter] public bool PuedeEditar { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public EventCallback Cambiado { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+    [Parameter] public bool PuedeAdministrar { get; set; }
+    [Parameter] public EventCallback<Guid?> CrearProducto { get; set; }
+    [Parameter] public EventCallback ActualizarCatalogo { get; set; }
+    private readonly System.Globalization.CultureInfo cultura = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+    private EditContext? contexto;
+    private ValidationMessageStore? mensajes;
+    private readonly HashSet<FieldIdentifier> propios = [];
+    private bool enviando;
+    private bool Listo => Modelo.Validar(Catalogos).Count == 0;
+    private string NombreProducto(Guid? id) => Catalogos.Productos.FirstOrDefault(x => x.Id == id)?.Nombre ?? "";
+    private Task<IEnumerable<Guid?>> BuscarAsync(string? texto, CancellationToken ct) => Task.FromResult(
+        Catalogos.Productos.Where(x => string.IsNullOrWhiteSpace(texto) || x.Nombre.Contains(texto, StringComparison.CurrentCultureIgnoreCase)).Select(x => (Guid?)x.Id));
+    private List<string> errores = [];
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(contexto?.Model, Modelo)) return;
+        Desconectar();
+        contexto = new(Modelo); mensajes = new(contexto);
+        contexto.OnFieldChanged += CampoEditado;
+        contexto.OnValidationRequested += ValidarTodos;
+    }
+    private void CampoEditado(object? sender, FieldChangedEventArgs args)
+    {
+        mensajes!.Clear(args.FieldIdentifier);
+        propios.Remove(args.FieldIdentifier);
+        foreach (var retirado in propios.Where(x => x.Model is ModeloIngredienteReceta fila && !Modelo.Ingredientes.Contains(fila)).ToArray())
+        { mensajes.Clear(retirado); propios.Remove(retirado); }
+        if (Modelo.ValidarCampos(Catalogos).TryGetValue(args.FieldIdentifier, out var error))
+        { mensajes.Add(args.FieldIdentifier, error); propios.Add(args.FieldIdentifier); }
+        contexto!.NotifyValidationStateChanged();
+    }
+    private void ValidarTodos(object? sender, ValidationRequestedEventArgs args)
+    {
+        mensajes!.Clear(); propios.Clear();
+        foreach (var error in Modelo.ValidarCampos(Catalogos)) { mensajes.Add(error.Key, error.Value); propios.Add(error.Key); }
+        contexto!.NotifyValidationStateChanged();
+    }
+    private async Task CambiarProductoAsync(Guid? id)
+    {
+        if (Ocupado) return;
+        Modelo.ProductoResultadoId = id ?? Guid.Empty;
+        if (!CompatibilidadUnidades.ParaProducto(Catalogos, Modelo.ProductoResultadoId).Any(x => x.Id == Modelo.UnidadRendimientoId))
+            Modelo.UnidadRendimientoId = Catalogos.Productos.FirstOrDefault(x => x.Id == id)?.UnidadBaseId ?? "";
+        contexto?.NotifyFieldChanged(new(Modelo, nameof(Modelo.ProductoResultadoId)));
+        contexto?.NotifyFieldChanged(new(Modelo, nameof(Modelo.UnidadRendimientoId)));
+        await NotificarAsync();
+    }
+    public async Task ProductoCreadoAsync(Guid? clave)
+    {
+        if (clave is { } id && Modelo.Ingredientes.FirstOrDefault(x => x.Clave == id) is { } fila)
+        {
+            contexto?.NotifyFieldChanged(new(fila, nameof(fila.ProductoId)));
+            contexto?.NotifyFieldChanged(new(fila, nameof(fila.UnidadMedidaId)));
+        }
+        else if (clave is null)
+        {
+            contexto?.NotifyFieldChanged(new(Modelo, nameof(Modelo.ProductoResultadoId)));
+            contexto?.NotifyFieldChanged(new(Modelo, nameof(Modelo.UnidadRendimientoId)));
+        }
+        await NotificarAsync();
+    }
+    private Task NotificarAsync() { errores.Clear(); return Cambiado.InvokeAsync(); }
+    private async Task GuardarValidoAsync()
+    {
+        if (Ocupado || enviando || !PuedeEditar || Version?.Publicada == true) return;
+        errores = Modelo.Validar(Catalogos);
+        if (errores.Count != 0) return;
+        enviando = true;
+        try { await Guardar.InvokeAsync(); } finally { enviando = false; }
+    }
+    private void Desconectar()
+    {
+        if (contexto is null) return;
+        contexto.OnFieldChanged -= CampoEditado; contexto.OnValidationRequested -= ValidarTodos;
+    }
+    public void Dispose() => Desconectar();
+}

@@ -1,0 +1,24 @@
+<MudStack Spacing="3">
+    @if (Catalogos.Proveedores.Count == 0) { <EstadoVacio Mensaje="Se necesita un proveedor registrado para crear un pedido." /><MudButton Href="/compras?area=proveedores">Ver proveedores</MudButton> }
+    else
+    {
+        <EditForm Model="Modelo" id="@FormId" OnValidSubmit="() => Guardar.InvokeAsync()">
+            <DataAnnotationsValidator />
+            <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Pedido(Modelo)" />
+            <MudSelect T="Guid" Label="Proveedor del nuevo pedido" @bind-Value="Modelo.ProveedorId" For="() => Modelo.ProveedorId" Disabled="Ocupado">
+                @foreach (var proveedor in Catalogos.Proveedores) { <MudSelectItem T="Guid" Value="proveedor.Id">@proveedor.Nombre</MudSelectItem> }
+            </MudSelect>
+            <ValidationMessage For="() => Modelo.ProveedorId" />
+            <ValidationSummary />
+            @if (!AccionesExternas) { <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="Ocupado" Class="mt-3">Crear borrador de compra</MudButton> }
+        </EditForm>
+    }
+</MudStack>
+@code {
+    [Parameter, EditorRequired] public ModeloPedidoCompra Modelo { get; set; } = new();
+    [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback Guardar { get; set; }
+    [Parameter] public string FormId { get; set; } = "";
+    [Parameter] public bool AccionesExternas { get; set; }
+}

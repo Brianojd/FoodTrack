@@ -1,0 +1,36 @@
+using FoodTrace.Dtos.Compras;
+using FoodTrace.Dtos.Comunes;
+using FoodTrace.Dtos.Produccion;
+using FoodTrace.Models.Compras;
+
+namespace FoodTrace.Services.Estado;
+
+public sealed class EstadoCompras
+{
+    public CatalogosDto? Catalogos { get; set; }
+    public List<PedidoCompraDto> Pedidos { get; set; } = [];
+    public List<NecesidadIngredienteDto> Necesidades { get; set; } = [];
+    public List<OrdenProduccionDto> Produccion { get; set; } = [];
+    public PedidoCompraDto? Seleccionado { get; private set; }
+    public ModeloPedidoCompra Nuevo { get; set; } = new();
+    public ModeloDetallePedido Detalle { get; set; } = new();
+    public ModeloCantidadPresentaciones? EdicionCantidad { get; set; }
+    public Guid DestinoEdicionId { get; set; }
+    public bool NecesidadesDesactualizadas { get; set; }
+    public bool DestinoSinGuardar => Seleccionado is not null && Seleccionado.OrdenRecepcionId is null && DestinoEdicionId != (Seleccionado.EstablecimientoId ?? Guid.Empty);
+    public bool TieneCambios => Nuevo.ProveedorId != Guid.Empty || Nuevo.EstablecimientoId != Guid.Empty || Detalle.TieneContenido ||
+        EdicionCantidad is { } edicion && edicion.Cantidad != edicion.CantidadOriginal || DestinoSinGuardar;
+
+    public void Seleccionar(PedidoCompraDto pedido)
+    {
+        Seleccionado = pedido; Nuevo = new(); Detalle = new(); EdicionCantidad = null;
+        DestinoEdicionId = pedido.EstablecimientoId ?? Guid.Empty;
+    }
+    public void AceptarRespuesta(PedidoCompraDto pedido)
+    {
+        Pedidos = Pedidos.Where(x => x.Id != pedido.Id).Append(pedido).ToList();
+        Seleccionado = pedido;
+        DestinoEdicionId = pedido.EstablecimientoId ?? Guid.Empty;
+    }
+    public static string NombreEstado(int estado) => estado switch { 0 => "Borrador", 1 => "Enviado", 2 => "Aprobado · solo lectura", 3 => "Rechazado · solo lectura", _ => "Estado no reconocido · solo lectura" };
+}

@@ -1,0 +1,5 @@
+<div role="status" aria-live="polite" class="my-3">
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" aria-label="@Mensaje" />
+    <MudText Typo="Typo.body2">@Mensaje</MudText>
+</div>
+@code { [Parameter] public string Mensaje { get; set; } = "Cargando datos…"; }

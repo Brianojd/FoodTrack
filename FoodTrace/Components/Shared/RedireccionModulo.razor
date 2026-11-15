@@ -1,0 +1,9 @@
+@inject NavigationManager Navegacion
+
+@code {
+    protected override void OnInitialized()
+    {
+        if (EstadoNavegacion.DestinoLegado(Navegacion.Uri) is { } destino)
+            Navegacion.NavigateTo(destino, replace: true);
+    }
+}

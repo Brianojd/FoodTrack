@@ -1,0 +1,12 @@
+@inherits PaginaAdministrativa
+
+<EncabezadoPagina HeadingTag="h2" Titulo="Unidades de medida" Descripcion="Catálogo de solo lectura. Las conversiones oficiales se realizan en el servidor." />
+<MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (Ocupado) { <EstadoCarga /> }
+@if (Datos is not null)
+{
+    <MudTable Items="Datos.UnidadesMedida" Breakpoint="Breakpoint.Sm" Elevation="0">
+        <HeaderContent><MudTh>Unidad</MudTh><MudTh>Dimensión</MudTh><MudTh>Factor de conversión</MudTh></HeaderContent>
+        <RowTemplate><MudTd DataLabel="Unidad">@context.Id</MudTd><MudTd DataLabel="Dimensión">@context.Dimension</MudTd><MudTd DataLabel="Factor de conversión">@context.FactorConversion</MudTd></RowTemplate>
+    </MudTable>
+}

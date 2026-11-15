@@ -1,0 +1,15 @@
+.recetas {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.recetas ::deep .mud-button-root {
+    max-width: 100%;
+    white-space: normal;
+}
+
+.recetas ::deep a:focus-visible,
+.recetas ::deep button:focus-visible {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: 3px;
+}
