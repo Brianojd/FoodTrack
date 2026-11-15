@@ -149,7 +149,7 @@ public sealed class RenderAdministrativoTests
 	}
 
 	[Fact]
-	public async Task Los_roles_tienen_etiquetas_espanolas_y_un_error_vacio_no_genera_alerta()
+	public async Task Selector_roles_ofrece_solo_admin_y_operador_y_un_error_vacio_no_genera_alerta()
 	{
 		await using ServiceProvider servicios = CrearServicios("admin");
 		await using AsyncServiceScope scope = servicios.CreateAsyncScope();
@@ -160,9 +160,10 @@ public sealed class RenderAdministrativoTests
 			{
 				string html = WebUtility.HtmlDecode((await renderer.RenderComponentAsync<SelectorRoles>()).ToHtmlString());
 				Assert.Contains("Administrador", html);
-				Assert.Contains("Comprador", html);
-				Assert.Contains("Planificador", html);
-				Assert.Contains("Aprobador", html);
+				Assert.Contains("Operador", html);
+				Assert.DoesNotContain("Comprador", html);
+				Assert.DoesNotContain("Planificador", html);
+				Assert.DoesNotContain("Aprobador", html);
 				Assert.DoesNotContain("rol.Nombre", html);
 				Assert.DoesNotContain("role=\"alert\"", (await renderer.RenderComponentAsync<MensajeError>()).ToHtmlString());
 				HtmlRootComponent error = await renderer.RenderComponentAsync<MensajeError>(ParameterView.FromDictionary(new Dictionary<string, object?> { ["Mensaje"] = "Error de prueba" }));

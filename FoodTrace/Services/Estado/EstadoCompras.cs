@@ -15,18 +15,22 @@ public sealed class EstadoCompras
     public ModeloPedidoCompra Nuevo { get; set; } = new();
     public ModeloDetallePedido Detalle { get; set; } = new();
     public ModeloCantidadPresentaciones? EdicionCantidad { get; set; }
-    public ModeloRechazoCompra Rechazo { get; set; } = new();
+    public Guid DestinoEdicionId { get; set; }
     public bool NecesidadesDesactualizadas { get; set; }
-    public bool TieneCambios => Nuevo.ProveedorId != Guid.Empty || Detalle.TieneContenido || !string.IsNullOrEmpty(Rechazo.Motivo) || EdicionCantidad is { } edicion && edicion.Cantidad != edicion.CantidadOriginal;
+    public bool DestinoSinGuardar => Seleccionado is not null && Seleccionado.OrdenRecepcionId is null && DestinoEdicionId != (Seleccionado.EstablecimientoId ?? Guid.Empty);
+    public bool TieneCambios => Nuevo.ProveedorId != Guid.Empty || Nuevo.EstablecimientoId != Guid.Empty || Detalle.TieneContenido ||
+        EdicionCantidad is { } edicion && edicion.Cantidad != edicion.CantidadOriginal || DestinoSinGuardar;
 
     public void Seleccionar(PedidoCompraDto pedido)
     {
-        Seleccionado = pedido; Nuevo = new(); Detalle = new(); EdicionCantidad = null; Rechazo = new();
+        Seleccionado = pedido; Nuevo = new(); Detalle = new(); EdicionCantidad = null;
+        DestinoEdicionId = pedido.EstablecimientoId ?? Guid.Empty;
     }
     public void AceptarRespuesta(PedidoCompraDto pedido)
     {
         Pedidos = Pedidos.Where(x => x.Id != pedido.Id).Append(pedido).ToList();
         Seleccionado = pedido;
+        DestinoEdicionId = pedido.EstablecimientoId ?? Guid.Empty;
     }
     public static string NombreEstado(int estado) => estado switch { 0 => "Borrador", 1 => "Enviado", 2 => "Aprobado · solo lectura", 3 => "Rechazado · solo lectura", _ => "Estado no reconocido · solo lectura" };
 }

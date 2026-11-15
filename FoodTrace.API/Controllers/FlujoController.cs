@@ -51,65 +51,39 @@ public sealed class FlujoController(SesionEmpresa sesion, IServicioFlujo flujo,
     [HttpPut("users/{id}"), Authorize(Roles = "admin")]
     public async Task<ActionResult<UsuarioDto>> ActualizarMembresiaAsync(string id, ActualizarMembresiaDto entrada, CancellationToken cancelacion = default) => Ok(await usuarios.ActualizarMembresiaAsync(id, entrada, cancelacion));
 
-    [HttpGet("recipes")]
+    [HttpGet("recipes"), Authorize(Roles = "admin")]
     public async Task<ActionResult<List<VersionRecetaDto>>> ObtenerRecetasAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerRecetasAsync(cancelacion));
-    [HttpPost("recipes"), Authorize(Roles = "planner")]
+    [HttpPost("recipes"), Authorize(Roles = "admin")]
     public async Task<ActionResult<VersionRecetaDto>> CrearRecetaAsync(CrearRecetaDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.CrearRecetaAsync(entrada, cancelacion));
-    [HttpPut("recipes/{id:guid}"), Authorize(Roles = "planner")]
+    [HttpPut("recipes/{id:guid}"), Authorize(Roles = "admin")]
     public async Task<ActionResult<VersionRecetaDto>> ActualizarRecetaAsync(Guid id, ActualizarRecetaDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.ActualizarRecetaAsync(id, entrada, cancelacion));
-    [HttpPost("recipes/{id:guid}/publish"), Authorize(Roles = "planner")]
+    [HttpPost("recipes/{id:guid}/publish"), Authorize(Roles = "admin")]
     public async Task<ActionResult<VersionRecetaDto>> PublicarRecetaAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.PublicarRecetaAsync(id, entrada, cancelacion));
-    [HttpPost("recipes/{id:guid}/versions"), Authorize(Roles = "planner")]
+    [HttpPost("recipes/{id:guid}/versions"), Authorize(Roles = "admin")]
     public async Task<ActionResult<VersionRecetaDto>> CrearVersionRecetaAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.CrearVersionRecetaAsync(id, entrada, cancelacion));
 
-    [HttpGet("production")]
-    public async Task<ActionResult<List<OrdenProduccionDto>>> ObtenerProduccionAsync(CancellationToken cancelacion = default)
-    {
-        var (alcance, propietarioId) = ResolverAlcance();
-        return Ok(await flujo.ObtenerProduccionAsync(alcance, propietarioId, cancelacion));
-    }
-    [HttpGet("needs")]
-    public async Task<ActionResult<List<NecesidadIngredienteDto>>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default)
-    {
-        var (alcance, propietarioId) = ResolverAlcance();
-        return Ok(await flujo.ObtenerNecesidadesAsync(alcance, propietarioId, cancelacion));
-    }
-    [HttpPost("production"), Authorize(Roles = "planner")]
+    [HttpGet("production"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<List<OrdenProduccionDto>>> ObtenerProduccionAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerProduccionAsync(cancelacion));
+    [HttpGet("needs"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<List<NecesidadIngredienteDto>>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerNecesidadesAsync(cancelacion));
+    [HttpPost("production"), Authorize(Roles = "admin")]
     public async Task<ActionResult<OrdenProduccionDto>> PlanificarProduccionAsync(PlanificarProduccionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.PlanificarProduccionAsync(entrada, cancelacion));
 
-    [HttpGet("purchases")]
-    public async Task<ActionResult<List<PedidoCompraDto>>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default)
-    {
-        var (alcance, propietarioId) = ResolverAlcance();
-        return Ok(await flujo.ObtenerPedidosCompraAsync(alcance, propietarioId, cancelacion));
-    }
-    [HttpPost("purchases"), Authorize(Roles = "buyer,admin")]
+    [HttpGet("purchases"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<List<PedidoCompraDto>>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default) => Ok(await flujo.ObtenerPedidosCompraAsync(cancelacion));
+    [HttpPost("purchases"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> CrearPedidoCompraAsync(CrearPedidoCompraDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.CrearPedidoCompraAsync(entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/lines"), Authorize]
-    public async Task<ActionResult<PedidoCompraDto>> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default)
-    {
-        var (alcance, propietarioId) = ResolverAlcance();
-        if (!await flujo.PedidoEsVisibleAsync(id, alcance, propietarioId, cancelacion))
-            return NotFound();
-        if (!User.IsInRole(Roles.Administrador) && !User.IsInRole(Roles.Comprador))
-            return Forbid();
-        return Ok(await flujo.AgregarDetalleCompraAsync(id, entrada, cancelacion));
-    }
-    [HttpPut("purchases/{id:guid}/lines/{lineId:guid}"), Authorize(Roles = "buyer,admin")]
+    [HttpPut("purchases/{id:guid}/destination"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<PedidoCompraDto>> ActualizarDestinoPedidoCompraAsync(Guid id, CrearPedidoCompraDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.ActualizarDestinoPedidoCompraAsync(id, entrada, cancelacion));
+    [HttpPost("purchases/{id:guid}/receipt-order"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<PedidoCompraDto>> GenerarOrdenRecepcionAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.GenerarOrdenRecepcionAsync(id, entrada, cancelacion));
+    [HttpPost("purchases/{id:guid}/lines"), Authorize(Roles = "admin")]
+    public async Task<ActionResult<PedidoCompraDto>> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.AgregarDetalleCompraAsync(id, entrada, cancelacion));
+    [HttpPut("purchases/{id:guid}/lines/{lineId:guid}"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> ActualizarPresentacionesAsync(Guid id, [FromRoute(Name = "lineId")] Guid detalleId, ActualizarCantidadPresentacionesDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.ActualizarPresentacionesAsync(id, detalleId, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/lines/{lineId:guid}/remove"), Authorize(Roles = "buyer,admin")]
+    [HttpPost("purchases/{id:guid}/lines/{lineId:guid}/remove"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> RetirarDetalleCompraAsync(Guid id, [FromRoute(Name = "lineId")] Guid detalleId, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.RetirarDetalleCompraAsync(id, detalleId, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/submit"), Authorize(Roles = "buyer,admin")]
+    [HttpPost("purchases/{id:guid}/submit"), Authorize(Roles = "admin")]
     public async Task<ActionResult<PedidoCompraDto>> EnviarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.EnviarPedidoCompraAsync(id, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/approve"), Authorize(Roles = "admin")]
-    public async Task<ActionResult<PedidoCompraDto>> AprobarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.AprobarPedidoCompraAsync(id, entrada, cancelacion));
-    [HttpPost("purchases/{id:guid}/reject"), Authorize(Roles = "admin")]
-    public async Task<ActionResult<PedidoCompraDto>> RechazarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => Ok(await flujo.RechazarPedidoCompraAsync(id, entrada, cancelacion));
 
-    private (AlcanceListado Alcance, string PropietarioId) ResolverAlcance()
-    {
-        if (User.IsInRole(Roles.Administrador) || User.IsInRole(Roles.Comprador))
-            return (AlcanceListado.Global, sesion.UsuarioId);
-        return (AlcanceListado.Propietario, sesion.UsuarioId);
-    }
 }

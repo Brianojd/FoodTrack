@@ -266,15 +266,40 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
 
     public async Task<PedidoCompraDto> CrearPedidoCompraAsync(CrearPedidoCompraDto entrada, CancellationToken cancelacion = default)
     {
+        if (entrada.EstablecimientoId == Guid.Empty)
+            throw ErrorCampo("EstablishmentId", "Seleccione un establecimiento de su empresa.");
         await BuscarAsync<Proveedor>(entrada.ProveedorId, cancelacion);
+        await BuscarAsync<Establecimiento>(entrada.EstablecimientoId, cancelacion);
         var pedido = new PedidoCompra
         {
             EmpresaId = sesion.EmpresaId,
             ProveedorId = entrada.ProveedorId,
+            EstablecimientoId = entrada.EstablecimientoId,
             CreadoPorId = sesion.UsuarioId,
             FechaCreacion = DateTimeOffset.UtcNow
         };
-        db.PedidosCompra.Add(pedido); await db.SaveChangesAsync(cancelacion); return pedido.ADto();
+        db.PedidosCompra.Add(pedido); await db.SaveChangesAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+    }
+
+    public async Task<PedidoCompraDto> ActualizarDestinoPedidoCompraAsync(Guid id, CrearPedidoCompraDto entrada, CancellationToken cancelacion = default)
+    {
+        if (entrada.EstablecimientoId == Guid.Empty)
+            throw ErrorCampo("EstablishmentId", "Seleccione un establecimiento de su empresa.");
+        await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancelacion);
+        var pedido = await ObtenerPedidoAsync(id, cancelacion); ComprobarRevision(pedido, entrada.Revision);
+        if (await db.OrdenesRecepcion.AsNoTracking().AnyAsync(x => x.PedidoCompraId == pedido.Id, cancelacion))
+            throw new ExcepcionRegla("The destination cannot change after a receipt order exists.");
+        var destino = await BuscarAsync<Establecimiento>(entrada.EstablecimientoId, cancelacion);
+        pedido.EstablecimientoId = destino.Id;
+        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+    }
+
+    private async Task<PedidoCompraDto> PedidoDtoAsync(PedidoCompra pedido, CancellationToken cancelacion)
+    {
+        var dto = pedido.ADto();
+        dto.OrdenRecepcionId = await db.OrdenesRecepcion.AsNoTracking()
+            .Where(x => x.PedidoCompraId == pedido.Id).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(cancelacion);
+        return dto;
     }
 
     public async Task<PedidoCompraDto> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default)
@@ -321,7 +346,7 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
         if (detalle.NecesidadBruta < 0) throw new ExcepcionRegla("Gross need cannot be negative.");
         if (detalle.CantidadPedida < detalle.NecesidadBruta) throw new ExcepcionRegla("Whole packages must cover the allocated gross need.");
         pedido.Detalles.Add(detalle); db.DetallesPedidoCompra.Add(detalle); pedido.Revision = Guid.NewGuid();
-        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return pedido.ADto();
+        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
     }
 
     public async Task<PedidoCompraDto> ActualizarPresentacionesAsync(Guid id, Guid detalleId, ActualizarCantidadPresentacionesDto entrada, CancellationToken cancelacion = default)
@@ -333,7 +358,7 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
         var cantidad = Cantidades.CantidadPresentaciones(entrada.CantidadPresentaciones, detalle.CantidadBasePresentacion);
         if (cantidad < detalle.NecesidadBruta) throw new ExcepcionRegla("Packages must cover gross need.");
         detalle.CantidadPresentaciones = entrada.CantidadPresentaciones; detalle.CantidadPedida = cantidad; pedido.Revision = Guid.NewGuid();
-        await db.SaveChangesAsync(cancelacion); return pedido.ADto();
+        await db.SaveChangesAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
     }
 
     public async Task<PedidoCompraDto> RetirarDetalleCompraAsync(Guid id, Guid detalleId, RevisionDto entrada, CancellationToken cancelacion = default)
@@ -354,30 +379,88 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
             db.DetallesPedidoCompra.Remove(detalle);
         }
         pedido.Revision = Guid.NewGuid();
-        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return pedido.ADto();
+        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
     }
 
     public Task<PedidoCompraDto> EnviarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) =>
         TransicionarAsync(id, "submit", entrada, cancelacion);
 
-    public Task<PedidoCompraDto> AprobarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) =>
-        TransicionarAsync(id, "approve", entrada, cancelacion);
-
-    public Task<PedidoCompraDto> RechazarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) =>
-        TransicionarAsync(id, "reject", entrada, cancelacion);
-
     private async Task<PedidoCompraDto> TransicionarAsync(Guid id, string accion, RevisionDto entrada, CancellationToken cancelacion)
     {
         await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancelacion);
         var pedido = await ObtenerPedidoAsync(id, cancelacion); ComprobarRevision(pedido, entrada.Revision);
-        pedido.Transicionar(accion, sesion.UsuarioId, DateTimeOffset.UtcNow, entrada.Motivo);
-        if (accion == "reject")
-            foreach (var asignacion in pedido.Detalles.SelectMany(x => x.Asignaciones).Where(x => !x.Liberada))
+        if (accion == "submit" && pedido.Estado == EstadoPedidoCompra.Enviado)
+        {
+            if (!await db.OrdenesRecepcion.AsNoTracking().AnyAsync(x => x.PedidoCompraId == pedido.Id, cancelacion))
+                throw new ExcepcionRegla("This sent purchase has no receipt order. Use the explicit legacy repair action.");
+            await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+        }
+        var fecha = DateTimeOffset.UtcNow;
+        var orden = accion == "submit" ? await CrearSnapshotOrdenAsync(pedido, fecha, cancelacion) : null;
+        pedido.Transicionar(accion, sesion.UsuarioId, fecha, entrada.Motivo);
+        if (orden is not null) db.OrdenesRecepcion.Add(orden);
+        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+    }
+
+    public async Task<PedidoCompraDto> GenerarOrdenRecepcionAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default)
+    {
+        await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancelacion);
+        var pedido = await ObtenerPedidoAsync(id, cancelacion);
+        if (await db.OrdenesRecepcion.AsNoTracking().AnyAsync(x => x.PedidoCompraId == pedido.Id, cancelacion))
+        {
+            // Repetir el mismo repair después de una respuesta perdida no vuelve a insertar la orden.
+            await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+        }
+        ComprobarRevision(pedido, entrada.Revision);
+        if (pedido.Estado != EstadoPedidoCompra.Enviado)
+            throw new ExcepcionRegla("Only a sent purchase can receive an explicit legacy receipt order.");
+        var orden = await CrearSnapshotOrdenAsync(pedido, DateTimeOffset.UtcNow, cancelacion);
+        db.OrdenesRecepcion.Add(orden);
+        // También invalida un cambio de destino concurrente que haya leído la misma revisión.
+        pedido.Revision = Guid.NewGuid();
+        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return await PedidoDtoAsync(pedido, cancelacion);
+    }
+
+    private async Task<OrdenRecepcion> CrearSnapshotOrdenAsync(PedidoCompra pedido, DateTimeOffset fecha, CancellationToken cancelacion)
+    {
+        if (pedido.EstablecimientoId is not { } destinoId || destinoId == Guid.Empty)
+            throw ErrorCampo("EstablishmentId", "La compra necesita un establecimiento destino antes de generar la orden.");
+        var lineas = ReglasPedidoCompra.DetallesActivos(pedido).ToArray();
+        if (lineas.Length == 0) throw new ExcepcionRegla("A receipt order requires at least one active purchase line.");
+        var proveedor = await BuscarAsync<Proveedor>(pedido.ProveedorId, cancelacion);
+        var destino = await BuscarAsync<Establecimiento>(destinoId, cancelacion);
+        var orden = new OrdenRecepcion
+        {
+            EmpresaId = sesion.EmpresaId,
+            PedidoCompraId = pedido.Id,
+            ProveedorId = pedido.ProveedorId,
+            NombreProveedor = Texto(proveedor.Nombre),
+            EstablecimientoId = destino.Id,
+            NombreEstablecimiento = Texto(destino.Nombre),
+            CreadoPorId = sesion.UsuarioId,
+            FechaCreacion = fecha,
+            Estado = EstadoOrdenRecepcion.Pendiente
+        };
+        foreach (var linea in lineas)
+        {
+            var producto = await BuscarAsync<Producto>(linea.ProductoId, cancelacion);
+            var esperada = Cantidades.CantidadPresentaciones(linea.CantidadPresentaciones, linea.CantidadBasePresentacion);
+            if (esperada != linea.CantidadPedida) throw new ExcepcionRegla("The purchase line quantity snapshot is inconsistent.");
+            orden.Detalles.Add(new DetalleOrdenRecepcion
             {
-                var necesidad = await BuscarAsync<NecesidadIngrediente>(asignacion.NecesidadIngredienteId, cancelacion);
-                necesidad.CantidadAsignada -= asignacion.CantidadAsignada; asignacion.Liberada = true;
-            }
-        await db.SaveChangesAsync(cancelacion); await transaccion.CommitAsync(cancelacion); return pedido.ADto();
+                EmpresaId = sesion.EmpresaId,
+                OrdenRecepcionId = orden.Id,
+                ProductoId = linea.ProductoId,
+                NombreProducto = Texto(producto.Nombre),
+                PresentacionProveedorId = linea.PresentacionProveedorId,
+                NombrePresentacion = Texto(linea.NombrePresentacion),
+                CantidadPresentaciones = linea.CantidadPresentaciones,
+                CantidadBasePresentacion = linea.CantidadBasePresentacion,
+                CantidadEsperada = esperada,
+                UnidadBaseId = linea.UnidadBaseId
+            });
+        }
+        return orden;
     }
 
     private async Task<PedidoCompra> ObtenerPedidoAsync(Guid id, CancellationToken cancelacion) => await db.PedidosCompra.Include(x => x.Detalles).ThenInclude(x => x.Asignaciones)
@@ -385,78 +468,35 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
 
     public async Task<List<VersionRecetaDto>> ObtenerRecetasAsync(CancellationToken cancelacion = default) =>
         (await db.VersionesReceta.AsNoTracking().Include(x => x.Ingredientes).ToListAsync(cancelacion)).Select(MapeadorDtos.ADto).ToList();
-    public async Task<List<OrdenProduccionDto>> ObtenerProduccionAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default)
+    public async Task<List<OrdenProduccionDto>> ObtenerProduccionAsync(CancellationToken cancelacion = default)
     {
         var ordenes = await db.OrdenesProduccion.AsNoTracking().Include(x => x.Necesidades).ToListAsync(cancelacion);
-        if (alcance == AlcanceListado.Propietario)
-            ordenes = ordenes.Where(x => x.CreadoPorId == propietarioId).ToList();
         return ordenes.Select(MapeadorDtos.ADto).ToList();
     }
 
-    public async Task<List<NecesidadIngredienteDto>> ObtenerNecesidadesAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default)
+    public async Task<List<NecesidadIngredienteDto>> ObtenerNecesidadesAsync(CancellationToken cancelacion = default)
     {
         var necesidades = await db.NecesidadesIngredientes.AsNoTracking().ToListAsync(cancelacion);
-        if (alcance == AlcanceListado.Propietario)
-        {
-            var ordenesPropias = (await db.OrdenesProduccion.AsNoTracking()
-                .Where(x => x.CreadoPorId == propietarioId)
-                .Select(x => x.Id).ToListAsync(cancelacion)).ToHashSet();
-            necesidades = necesidades.Where(x => ordenesPropias.Contains(x.OrdenProduccionId)).ToList();
-        }
         return necesidades.Select(MapeadorDtos.ADto).ToList();
     }
 
-    public async Task<List<PedidoCompraDto>> ObtenerPedidosCompraAsync(AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default)
+    public async Task<List<PedidoCompraDto>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default)
     {
         var pedidos = await db.PedidosCompra.AsNoTracking().Include(x => x.Detalles).ThenInclude(x => x.Asignaciones).ToListAsync(cancelacion);
-        if (alcance == AlcanceListado.Global)
-            return pedidos.Select(MapeadorDtos.ADto).ToList();
-
-        var necesidadAOrden = (await db.NecesidadesIngredientes.AsNoTracking()
-            .Select(x => new { x.Id, x.OrdenProduccionId }).ToListAsync(cancelacion))
-            .ToDictionary(x => x.Id, x => x.OrdenProduccionId);
-        var ordenesPropias = (await db.OrdenesProduccion.AsNoTracking()
-            .Where(x => x.CreadoPorId == propietarioId)
-            .Select(x => x.Id).ToListAsync(cancelacion)).ToHashSet();
-
-        bool EsPropia(Guid necesidadId) => necesidadAOrden.TryGetValue(necesidadId, out var ordenId) && ordenesPropias.Contains(ordenId);
-
-        var resultado = new List<PedidoCompraDto>();
-        foreach (var pedido in pedidos)
+        var ordenes = await db.OrdenesRecepcion.AsNoTracking().ToDictionaryAsync(x => x.PedidoCompraId, x => x.Id, cancelacion);
+        return pedidos.Select(x =>
         {
-            var dto = pedido.ADto();
-            var detallesParciales = new List<DetallePedidoCompraDto>();
-            foreach (var detalle in dto.Detalles)
-            {
-                var asignacionesActivas = detalle.Asignaciones.Where(a => !a.Liberada).ToList();
-                var asignacionesPropias = asignacionesActivas.Where(a => EsPropia(a.NecesidadIngredienteId)).ToList();
-                if (asignacionesPropias.Count > 0)
-                {
-                    bool esExclusiva = asignacionesActivas.All(a => EsPropia(a.NecesidadIngredienteId));
-                    if (!esExclusiva)
-                    {
-                        detalle.CantidadPedida = 0m;
-                        detalle.NecesidadBruta = 0m;
-                        detalle.CantidadPresentaciones = 0m;
-                        detalle.CantidadBasePresentacion = 0m;
-                    }
-                    detalle.Asignaciones = asignacionesPropias;
-                    detallesParciales.Add(detalle);
-                }
-            }
-            if (detallesParciales.Count > 0)
-            {
-                dto.Detalles = detallesParciales;
-                dto.VistaParcial = true;
-                resultado.Add(dto);
-            }
-        }
-        return resultado;
+            var dto = x.ADto();
+            if (ordenes.TryGetValue(x.Id, out var ordenId)) dto.OrdenRecepcionId = ordenId;
+            return dto;
+        }).ToList();
     }
 
-    public async Task<bool> PedidoEsVisibleAsync(Guid id, AlcanceListado alcance, string propietarioId, CancellationToken cancelacion = default)
-    {
-        var visibles = await ObtenerPedidosCompraAsync(alcance, propietarioId, cancelacion);
-        return visibles.Exists(x => x.Id == id);
-    }
+    public async Task<List<OrdenRecepcionDto>> ObtenerOrdenesRecepcionAsync(CancellationToken cancelacion = default) =>
+        (await db.OrdenesRecepcion.AsNoTracking().Include(x => x.Detalles).ToListAsync(cancelacion))
+            .OrderByDescending(x => x.FechaCreacion).ThenBy(x => x.Id).Select(MapeadorDtos.ADto).ToList();
+
+    public async Task<OrdenRecepcionDto> ObtenerOrdenRecepcionAsync(Guid id, CancellationToken cancelacion = default) =>
+        (await db.OrdenesRecepcion.AsNoTracking().Include(x => x.Detalles).SingleOrDefaultAsync(x => x.Id == id, cancelacion)
+            ?? throw new KeyNotFoundException("Record not found in your company.")).ADto();
 }

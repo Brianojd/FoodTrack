@@ -1,23 +1,50 @@
 @inherits DialogoEdicionBase
 @inject IServicioCompras Api
 
-<MarcoDialogoEdicion Control="this" GuardarDisponible="@(Catalogos.Proveedores.Count != 0)">
-    <MudText Typo="Typo.body2" Class="mb-3">Se creará el encabezado de un borrador. Agregar detalles será una acción posterior explícita.</MudText>
-    <FormularioPedidoCompra Modelo="modelo" Catalogos="Catalogos" Ocupado="Bloqueado" Guardar="GuardarAsync" FormId="FormId" AccionesExternas="true" />
+<MarcoDialogoEdicion Control="this" GuardarDisponible="@(Catalogos.Proveedores.Count != 0 && Catalogos.Establecimientos.Count != 0)">
+    <MudText Typo="Typo.body2" Class="mb-3">Se creará el encabezado de un borrador con destino propio de su empresa. Agregar detalles será una acción posterior explícita.</MudText>
+    <MudStack Spacing="3">
+        @if (Catalogos.Proveedores.Count == 0) { <EstadoVacio Mensaje="Se necesita un proveedor registrado para crear un pedido." /><MudButton Href="/compras?area=proveedores">Ver proveedores</MudButton> }
+        @if (Catalogos.Establecimientos.Count == 0) { <EstadoVacio Mensaje="Se necesita un establecimiento destino registrado para crear un pedido." /><MudButton Href="/catalogos">Ver establecimientos</MudButton> }
+        @if (Catalogos.Proveedores.Count != 0 && Catalogos.Establecimientos.Count != 0)
+        {
+            <EditForm Model="modelo" id="@FormId" OnValidSubmit="GuardarAsync">
+                <DataAnnotationsValidator />
+                <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Pedido(modelo)" />
+                <MudSelect T="Guid" Label="Proveedor del nuevo pedido" @bind-Value="modelo.ProveedorId" For="() => modelo.ProveedorId" Disabled="Bloqueado">
+                    @foreach (var proveedor in Catalogos.Proveedores) { <MudSelectItem T="Guid" Value="proveedor.Id">@proveedor.Nombre</MudSelectItem> }
+                </MudSelect>
+                <ValidationMessage For="() => modelo.ProveedorId" />
+                <MudSelect T="Guid" Label="Establecimiento destino" @bind-Value="modelo.EstablecimientoId" For="() => modelo.EstablecimientoId" Disabled="Bloqueado">
+                    @foreach (var establecimiento in Catalogos.Establecimientos) { <MudSelectItem T="Guid" Value="establecimiento.Id">@establecimiento.Nombre</MudSelectItem> }
+                </MudSelect>
+                <ValidationMessage For="() => modelo.EstablecimientoId" />
+                <ValidationSummary />
+            </EditForm>
+        }
+    </MudStack>
 </MarcoDialogoEdicion>
 
 @code {
     [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
     [Parameter] public Guid ProveedorInicialId { get; set; }
+    [Parameter] public Guid EstablecimientoInicialId { get; set; }
     private ModeloPedidoCompra modelo = new();
-    private Guid inicial;
-    protected override string RolRequerido => "buyer";
-    protected override bool TieneCambios => modelo.ProveedorId != inicial;
-    protected override void OnInitialized() { base.OnInitialized(); inicial = ProveedorInicialId; modelo = new() { ProveedorId = inicial }; }
+    private Guid inicialProveedor, inicialDestino;
+    protected override string RolRequerido => "admin";
+    protected override bool TieneCambios => modelo.ProveedorId != inicialProveedor || modelo.EstablecimientoId != inicialDestino;
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        inicialProveedor = ProveedorInicialId;
+        inicialDestino = EstablecimientoInicialId;
+        modelo = new() { ProveedorId = inicialProveedor, EstablecimientoId = inicialDestino };
+    }
     private Task GuardarAsync()
     {
         if (!Catalogos.Proveedores.Any(x => x.Id == modelo.ProveedorId)) { MostrarError("Seleccione un proveedor disponible de su empresa."); return Task.CompletedTask; }
-        var entrada = new CrearPedidoCompraDto { ProveedorId = modelo.ProveedorId };
+        if (!Catalogos.Establecimientos.Any(x => x.Id == modelo.EstablecimientoId)) { MostrarError("Seleccione un establecimiento destino de su empresa."); return Task.CompletedTask; }
+        var entrada = new CrearPedidoCompraDto { ProveedorId = modelo.ProveedorId, EstablecimientoId = modelo.EstablecimientoId };
         return GuardarEnServidorAsync(ct => Api.CrearPedidoCompraAsync(entrada, ct));
     }
 }

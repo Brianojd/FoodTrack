@@ -217,7 +217,6 @@ public class WebContractTests
 			Cantidad = 150m
 		});
 		estado.Establecimiento.Nombre = "Unsubmitted kitchen";
-		estado.Compras.Rechazo.Motivo = "Unsubmitted reason";
 		Guid necesidadId = Guid.NewGuid();
 		estado.Compras.Detalle.Asignaciones[necesidadId] = new ModeloAsignacionCompra
 		{
@@ -237,7 +236,7 @@ public class WebContractTests
 				Assert.Contains("Crear borrador de compra", WebUtility.HtmlDecode((await renderer.RenderComponentAsync<Compras>()).ToHtmlString()));
 				Assert.Contains("Unsubmitted recipe draft", (await renderer.RenderComponentAsync<Recetas>(EnContenedor)).ToHtmlString());
 				Assert.Equal(150m, Assert.Single(estado.Recetas.Formulario.Ingredientes).Cantidad);
-				Assert.Equal("Unsubmitted reason", estado.Compras.Rechazo.Motivo);
+				Assert.Equal(25m, estado.Compras.Detalle.Asignaciones[necesidadId].Cantidad);
 				string html = (await renderer.RenderComponentAsync<AvisosFlujo>(ParameterView.FromDictionary(new Dictionary<string, object?>
 				{
 					["Error"] = "First error",
@@ -391,17 +390,19 @@ public class WebContractTests
 				{
 					Nombre = "Supplier"
 				});
-				PedidoCompraDto purchase = await first.CrearPedidoCompraAsync(new CrearPedidoCompraDto
-				{
-					ProveedorId = supplier.Id
-				});
-				Assert.Equal(0, purchase.Estado);
-				Assert.Equal(first.Identidad.Id, purchase.CreadoPorId);
-				Assert.Contains((IEnumerable<PedidoCompraDto>)(await first.ObtenerPedidosCompraAsync()), (Predicate<PedidoCompraDto>)((PedidoCompraDto x) => x.Id == purchase.Id));
 				NombreDto site = await first.CrearEstablecimientoAsync(new CrearEstablecimientoDto
 				{
 					Nombre = "Kitchen"
 				});
+				PedidoCompraDto purchase = await first.CrearPedidoCompraAsync(new CrearPedidoCompraDto
+				{
+					ProveedorId = supplier.Id,
+					EstablecimientoId = site.Id
+				});
+				Assert.Equal(0, purchase.Estado);
+				Assert.Equal(first.Identidad.Id, purchase.CreadoPorId);
+				Assert.Equal(site.Id, purchase.EstablecimientoId);
+				Assert.Contains((IEnumerable<PedidoCompraDto>)(await first.ObtenerPedidosCompraAsync()), (Predicate<PedidoCompraDto>)((PedidoCompraDto x) => x.Id == purchase.Id));
 				PresentacionProveedorDto pack = await first.CrearPresentacionAsync(new CrearPresentacionProveedorDto
 				{
 					ProveedorId = supplier.Id,
@@ -464,13 +465,7 @@ public class WebContractTests
 					Revision = purchase.Revision
 				});
 				Assert.Equal(1, purchase.Estado);
-				purchase = await first.AprobarPedidoCompraAsync(purchase.Id, new RevisionDto
-				{
-					Revision = purchase.Revision
-				});
-				Assert.Equal(2, purchase.Estado);
-				Assert.NotNull(purchase.FechaDecision);
-				Assert.Equal(first.Identidad.Id, purchase.DecididoPorId);
+				Assert.Null(purchase.FechaDecision);
 				first.CerrarSesion();
 				await Assert.ThrowsAsync<ExcepcionApi>(() => first.ObtenerCatalogosAsync());
 				Assert.NotNull(second.Identidad);

@@ -16,7 +16,7 @@ public sealed class FormularioCatalogos
     public decimal CantidadPresentacion { get; set; } = 1;
     public string CorreoNuevo { get; set; } = "";
     public string ContrasenaNueva { get; set; } = "";
-    public HashSet<string> RolesNuevos { get; set; } = ["planner"];
+    public HashSet<string> RolesNuevos { get; set; } = ["operator"];
     public HashSet<string> RolesEdicion { get; set; } = [];
     public UsuarioDto? UsuarioEdicion { get; set; }
     public bool UsuarioHabilitado { get; set; }

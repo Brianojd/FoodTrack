@@ -11,6 +11,7 @@
         <DataAnnotationsValidator />
         <ValidacionServidor CrearMapa="() => MapasValidacionServidor.Detalle(Modelo)" />
         <MudSelect T="Guid" Label="Presentación del proveedor" Value="Modelo.PresentacionId" ValueChanged="SolicitarPresentacion" For="() => Modelo.PresentacionId" Disabled="Bloqueado">
+            <MudSelectItem T="Guid" Value="Guid.Empty" Disabled>Seleccione una presentación</MudSelectItem>
             @foreach (var presentacion in Catalogos.Presentaciones.Where(x => x.ProveedorId == Pedido.ProveedorId)) { <MudSelectItem T="Guid" Value="presentacion.Id">@presentacion.Nombre · @Catalogos.Productos.FirstOrDefault(x => x.Id == presentacion.ProductoId)?.Nombre</MudSelectItem> }
         </MudSelect>
         <ValidationMessage For="() => Modelo.PresentacionId" />
@@ -125,5 +126,11 @@ else
         Modelo.PresentacionId = id; Modelo.CantidadPresentaciones = 1; Modelo.Asignaciones.Clear(); errores.Clear();
         formularioAsignaciones?.EditContext?.NotifyFieldChanged(new(Modelo, nameof(Modelo.Asignaciones)));
     }
+    public async Task ValidarYGuardarAsync()
+    {
+        if (Bloqueado || formularioAsignaciones?.EditContext is not { } contexto || !contexto.Validate()) return;
+        await GuardarValidoAsync();
+    }
+
     private async Task GuardarValidoAsync() { if (Bloqueado) return; errores = Modelo.Validar(Pedido, Catalogos, Necesidades); if (errores.Count == 0) await Guardar.InvokeAsync(); }
 }

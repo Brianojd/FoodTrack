@@ -1,34 +1,33 @@
 <MudPaper Outlined="true" Class="pa-4 my-4">
     <MudText Typo="Typo.h5" HtmlTag="h3">Pedido @Pedido.Id</MudText>
-    @if (Pedido.VistaParcial)
-    {
-        <MudAlert Severity="Severity.Info" Class="my-2">Vista parcial: solo se muestran las asignaciones vinculadas a tus necesidades.</MudAlert>
-    }
     <MudText>Estado: @EstadoCompras.NombreEstado(Pedido.Estado)</MudText>
     <MudText>Proveedor: @(Catalogos.Proveedores.FirstOrDefault(x => x.Id == Pedido.ProveedorId)?.Nombre ?? Pedido.ProveedorId.ToString())</MudText>
+    <MudText>Destino: @(Pedido.EstablecimientoId is { } destinoId ? Catalogos.Establecimientos.FirstOrDefault(x => x.Id == destinoId)?.Nombre ?? destinoId.ToString() : "Sin destino asignado")</MudText>
     <MudText>Creado por ID @Pedido.CreadoPorId · @Pedido.FechaCreacion.ToString("dd/MM/yyyy HH:mm zzz")</MudText>
     <MudText>Enviado por ID @(Pedido.EnviadoPorId ?? "—") · @(Pedido.FechaEnvio?.ToString("dd/MM/yyyy HH:mm zzz") ?? "Sin envío")</MudText>
     <MudText>Decidido por ID @(Pedido.DecididoPorId ?? "—") · @(Pedido.FechaDecision?.ToString("dd/MM/yyyy HH:mm zzz") ?? "Sin decisión")</MudText>
     @if (!string.IsNullOrEmpty(Pedido.MotivoDecision)) { <MudText>Motivo guardado: @Pedido.MotivoDecision</MudText> }
+    @if (Pedido.OrdenRecepcionId is { } ordenId)
+    {
+        <MudLink Href="@($"/ordenes-recepcion/{ordenId}")">Ver orden de recepción @ordenId</MudLink>
+    }
+    else if (Pedido.Estado == 1)
+    {
+        <MudAlert Severity="Severity.Warning" Class="my-3">Esta compra enviada no tiene una orden de recepción asociada. Revise el destino y use la acción administrativa explícita para generarla; no se creó automáticamente.</MudAlert>
+    }
     @if (Pedido.Detalles.Count == 0) { <EstadoVacio Mensaje="El pedido todavía no tiene detalles." /> }
     else
     {
         <MudTable Items="Pedido.Detalles" Breakpoint="Breakpoint.Sm" Elevation="0">
             <HeaderContent><MudTh>Presentación guardada</MudTh><MudTh Class="text-right">Presentaciones</MudTh><MudTh Class="text-right">Cantidad pedida</MudTh><MudTh Class="text-right">Necesidad bruta cubierta</MudTh><MudTh>Asignaciones e historial</MudTh><MudTh>Acciones</MudTh></HeaderContent>
             <RowTemplate>
-                @{
-                    var cantidadesOcultas = Pedido.VistaParcial && context.CantidadPedida == 0m;
-                }
                 <MudTd DataLabel="Presentación guardada">
                     @context.NombrePresentacion
-                    @if (!cantidadesOcultas)
-                    {
-                        <span> · @context.CantidadBasePresentacion @context.UnidadBaseId por presentación</span>
-                    }
+                    <span> · @context.CantidadBasePresentacion @context.UnidadBaseId por presentación</span>
                 </MudTd>
-                <MudTd DataLabel="Presentaciones" Class="text-right">@(cantidadesOcultas ? "—" : context.CantidadPresentaciones.ToString("G29"))</MudTd>
-                <MudTd DataLabel="Cantidad pedida" Class="text-right">@(cantidadesOcultas ? "—" : context.CantidadPedida.ToString("G29")) @context.UnidadBaseId</MudTd>
-                <MudTd DataLabel="Necesidad bruta cubierta" Class="text-right">@(cantidadesOcultas ? "—" : context.NecesidadBruta.ToString("G29")) @context.UnidadBaseId</MudTd>
+                <MudTd DataLabel="Presentaciones" Class="text-right">@context.CantidadPresentaciones.ToString("G29")</MudTd>
+                <MudTd DataLabel="Cantidad pedida" Class="text-right">@context.CantidadPedida.ToString("G29") @context.UnidadBaseId</MudTd>
+                <MudTd DataLabel="Necesidad bruta cubierta" Class="text-right">@context.NecesidadBruta.ToString("G29") @context.UnidadBaseId</MudTd>
                 <MudTd DataLabel="Asignaciones e historial">
                     @foreach (var asignacion in context.Asignaciones)
                     {
@@ -46,10 +45,6 @@
                 </MudTd>
             </RowTemplate>
         </MudTable>
-        @if (Pedido.VistaParcial && Pedido.Detalles.Any(d => d.CantidadPedida == 0m))
-        {
-            <MudText Typo="Typo.caption" Class="mt-2">Cantidades agregadas no disponibles en líneas compartidas con otros planificadores.</MudText>
-        }
     }
 </MudPaper>
 @code {

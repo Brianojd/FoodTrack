@@ -208,7 +208,7 @@ public sealed class ProduccionInterfazTests
     [InlineData(true)]
     public async Task El_modal_solo_confirma_tras_ACK_y_conserva_valores_ante_error(bool exito)
     {
-        var transporte = new Transporte("planner");
+        var transporte = new Transporte("admin");
         var respuesta = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         transporte.Guardado = () => respuesta.Task;
         await WithRenderer(transporte, async (renderer, _) =>
@@ -395,25 +395,25 @@ public sealed class ProduccionInterfazTests
     [InlineData(false, false, "Faltan un establecimiento y una versión de receta publicada.")]
     public async Task Los_requisitos_identifican_solo_lo_que_falta(bool establishment, bool published, string expected)
     {
-        var transport = new Transporte("planner") { Establecimiento = establishment, Publicada = published };
+        var transport = new Transporte("admin") { Establecimiento = establishment, Publicada = published };
         await WithRenderer(transport, async (renderer, _) =>
         {
             var html = WebUtility.HtmlDecode((await renderer.RenderComponentAsync<Produccion>()).ToHtmlString());
             Assert.Contains(expected, html);
-            Assert.DoesNotContain("href=\"/catalogos?area=establecimientos\"", html);
-            if (!establishment) Assert.Contains("Solicite a un administrador", html);
+            if (!establishment) Assert.Contains("href=\"/catalogos?area=establecimientos\"", html);
+            Assert.DoesNotContain("Solicite a un administrador", html);
             Assert.DoesNotContain("Todas las necesidades brutas guardadas", html);
         });
     }
 
     [Theory]
-    [InlineData("planner", true)]
-    [InlineData("admin", false)]
+    [InlineData("planner", false)]
+    [InlineData("admin", true)]
     [InlineData("buyer", false)]
     [InlineData("approver", false)]
     [InlineData("operator", false)]
     [InlineData("admin,planner", true)]
-    public async Task Las_acciones_no_convierten_admin_en_planificador(string roles, bool write)
+    public async Task Solo_admin_ve_las_acciones_de_escritura_de_recetas_y_produccion(string roles, bool write)
     {
         await WithRenderer(new Transporte(roles.Split(',')) { Publicada = false }, async (renderer, _) =>
         {
@@ -466,11 +466,11 @@ public sealed class ProduccionInterfazTests
             var family = Guid.NewGuid();
             state.Recetas.Seleccionar(new VersionRecetaDto { Id = Guid.NewGuid(), FamiliaRecetaId = family, Nombre = "Versión seleccionada", NumeroVersion = 12, Publicada = published, Instrucciones = "Preparar sin modificar" });
             var html = WebUtility.HtmlDecode((await renderer.RenderComponentAsync<Recetas>(ParameterView.FromDictionary(new Dictionary<string, object?> { ["EnContenedor"] = true }))).ToHtmlString());
-            var planner = roles.Split(',').Contains("planner");
+            var admin = roles.Split(',').Contains("admin");
             Assert.Contains(family.ToString(), html); Assert.Contains("versión 12", html);
-            Assert.Equal(planner && !published, html.Contains(">Editar borrador</span>", StringComparison.Ordinal));
-            Assert.Equal(planner && !published, html.Contains(">Publicar versión guardada</span>", StringComparison.Ordinal));
-            Assert.Equal(planner && published, html.Contains(">Crear nueva versión</span>", StringComparison.Ordinal));
+            Assert.Equal(admin && !published, html.Contains(">Editar borrador</span>", StringComparison.Ordinal));
+            Assert.Equal(admin && !published, html.Contains(">Publicar versión guardada</span>", StringComparison.Ordinal));
+            Assert.Equal(admin && published, html.Contains(">Crear nueva versión</span>", StringComparison.Ordinal));
             Assert.DoesNotContain("<textarea", html);
         });
     }
@@ -552,7 +552,7 @@ public sealed class ProduccionInterfazTests
     [Fact]
     public async Task Un_detalle_muestra_solo_sus_necesidades_y_conserva_el_enlace_de_orden()
     {
-        var transport = new Transporte("planner");
+        var transport = new Transporte("admin");
         var selected = Guid.NewGuid(); var other = Guid.NewGuid();
         transport.Ordenes = [new() { Id = selected, VersionRecetaId = transport.Version, CantidadPlanificada = 2, FechaPlanificada = new DateOnly(2026, 11, 4) }];
         transport.Necesidades = [

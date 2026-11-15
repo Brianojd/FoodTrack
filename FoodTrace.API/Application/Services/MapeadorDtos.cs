@@ -62,8 +62,23 @@ public static class MapeadorDtos
     };
     public static PedidoCompraDto ADto(this PedidoCompra entidad) => new()
     {
-        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision, ProveedorId = entidad.ProveedorId, Estado = (int)entidad.Estado,
+        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision, ProveedorId = entidad.ProveedorId,
+        EstablecimientoId = entidad.EstablecimientoId, Estado = (int)entidad.Estado,
         CreadoPorId = entidad.CreadoPorId, FechaCreacion = entidad.FechaCreacion, EnviadoPorId = entidad.EnviadoPorId, FechaEnvio = entidad.FechaEnvio,
         DecididoPorId = entidad.DecididoPorId, FechaDecision = entidad.FechaDecision, MotivoDecision = entidad.MotivoDecision, Detalles = entidad.Detalles.Select(ADto).ToList()
+    };
+    public static DetalleOrdenRecepcionDto ADto(this DetalleOrdenRecepcion entidad) => new()
+    {
+        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision, OrdenRecepcionId = entidad.OrdenRecepcionId,
+        ProductoId = entidad.ProductoId, NombreProducto = entidad.NombreProducto, PresentacionProveedorId = entidad.PresentacionProveedorId,
+        NombrePresentacion = entidad.NombrePresentacion, CantidadPresentaciones = entidad.CantidadPresentaciones,
+        CantidadBasePresentacion = entidad.CantidadBasePresentacion, CantidadEsperada = entidad.CantidadEsperada, UnidadBaseId = entidad.UnidadBaseId
+    };
+    public static OrdenRecepcionDto ADto(this OrdenRecepcion entidad) => new()
+    {
+        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision, PedidoCompraId = entidad.PedidoCompraId,
+        ProveedorId = entidad.ProveedorId, NombreProveedor = entidad.NombreProveedor, EstablecimientoId = entidad.EstablecimientoId,
+        NombreEstablecimiento = entidad.NombreEstablecimiento, CreadoPorId = entidad.CreadoPorId, FechaCreacion = entidad.FechaCreacion, Estado = (int)entidad.Estado,
+        Detalles = entidad.Detalles.Select(ADto).ToList()
     };
 }

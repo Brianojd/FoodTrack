@@ -27,7 +27,7 @@
     private FormularioVersionReceta? formulario;
     private Guid? versionId;
     private Guid revisionOriginal;
-    protected override string RolRequerido => "planner";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => !modelo.EquivaleA(inicial);
     protected override void OnInitialized()
     {

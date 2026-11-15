@@ -79,12 +79,14 @@ public sealed class ClienteFoodTraceApi(HttpClient cliente, ILogger<ClienteFoodT
     public Task<OrdenProduccionDto> PlanificarProduccionAsync(PlanificarProduccionDto entrada, CancellationToken cancelacion = default) => CrearAsync<OrdenProduccionDto>("api/production", entrada, cancelacion);
     public Task<List<PedidoCompraDto>> ObtenerPedidosCompraAsync(CancellationToken cancelacion = default) => ObtenerAsync<List<PedidoCompraDto>>("api/purchases", cancelacion);
     public Task<PedidoCompraDto> CrearPedidoCompraAsync(CrearPedidoCompraDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>("api/purchases", entrada, cancelacion);
+    public Task<PedidoCompraDto> ActualizarDestinoPedidoCompraAsync(Guid id, CrearPedidoCompraDto entrada, CancellationToken cancelacion = default) => ActualizarAsync<PedidoCompraDto>($"api/purchases/{id}/destination", entrada, cancelacion);
     public Task<PedidoCompraDto> AgregarDetalleCompraAsync(Guid id, AgregarDetalleCompraDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/lines", entrada, cancelacion);
     public Task<PedidoCompraDto> ActualizarPresentacionesAsync(Guid id, Guid detalleId, ActualizarCantidadPresentacionesDto entrada, CancellationToken cancelacion = default) => ActualizarAsync<PedidoCompraDto>($"api/purchases/{id}/lines/{detalleId}", entrada, cancelacion);
     public Task<PedidoCompraDto> RetirarDetalleCompraAsync(Guid id, Guid detalleId, RevisionDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/lines/{detalleId}/remove", entrada, cancelacion);
     public Task<PedidoCompraDto> EnviarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/submit", entrada, cancelacion);
-    public Task<PedidoCompraDto> AprobarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/approve", entrada, cancelacion);
-    public Task<PedidoCompraDto> RechazarPedidoCompraAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/reject", entrada, cancelacion);
+    public Task<PedidoCompraDto> GenerarOrdenRecepcionAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default) => CrearAsync<PedidoCompraDto>($"api/purchases/{id}/receipt-order", entrada, cancelacion);
+    public Task<List<OrdenRecepcionDto>> ObtenerOrdenesRecepcionAsync(CancellationToken cancelacion = default) => ObtenerAsync<List<OrdenRecepcionDto>>("api/receipt-orders", cancelacion);
+    public Task<OrdenRecepcionDto> ObtenerOrdenRecepcionAsync(Guid id, CancellationToken cancelacion = default) => ObtenerAsync<OrdenRecepcionDto>($"api/receipt-orders/{id}", cancelacion);
 
     private Task<T> ObtenerAsync<T>(string ruta, CancellationToken cancelacion) => EnviarAsync<T>(HttpMethod.Get, ruta, null, cancelacion);
     private Task<T> CrearAsync<T>(string ruta, object cuerpo, CancellationToken cancelacion) => EnviarAsync<T>(HttpMethod.Post, ruta, cuerpo, cancelacion);

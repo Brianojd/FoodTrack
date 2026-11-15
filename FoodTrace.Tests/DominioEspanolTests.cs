@@ -22,9 +22,9 @@ public class DominioEspanolTests
 		Type[] tipos = (from x in ensamblado.GetTypes()
 			where x.Namespace == "FoodTrace.API.Domain.Entities"
 			select x).ToArray();
-		Assert.Equal(new string[15]
+		Assert.Equal(new string[17]
 		{
-			"AppUser", "AsignacionCompra", "DetallePedidoCompra", "Empresa", "EntidadEmpresa", "Establecimiento", "IngredienteReceta", "NecesidadIngrediente", "OrdenProduccion", "PedidoCompra",
+			"AppUser", "AsignacionCompra", "DetalleOrdenRecepcion", "DetallePedidoCompra", "Empresa", "EntidadEmpresa", "Establecimiento", "IngredienteReceta", "NecesidadIngrediente", "OrdenProduccion", "OrdenRecepcion", "PedidoCompra",
 			"PresentacionProveedor", "Producto", "Proveedor", "UnidadMedida", "VersionReceta"
 		}, tipos.Select((Type x) => x.Name).Order(StringComparer.Ordinal));
 		HashSet<string> nombres = new HashSet<string>(StringComparer.Ordinal)
@@ -34,7 +34,7 @@ public class DominioEspanolTests
 			"VersionRecetaId", "CantidadPlanificada", "FechaPlanificada", "CreadoPorId", "FechaCreacion", "Necesidades", "OrdenProduccionId", "CantidadNecesaria", "CantidadAsignada", "Estado",
 			"EnviadoPorId", "FechaEnvio", "DecididoPorId", "FechaDecision", "MotivoDecision", "Detalles", "PedidoCompraId", "PresentacionProveedorId", "NombrePresentacion", "CantidadBasePresentacion",
             "CantidadPresentaciones", "CantidadPedida", "NecesidadBruta", "Asignaciones", "DetallePedidoCompraId", "NecesidadIngredienteId", "Liberada",
-            "CantidadRendimiento", "UnidadRendimientoId", "PorcionesRendimiento"
+            "CantidadRendimiento", "UnidadRendimientoId", "PorcionesRendimiento", "OrdenRecepcionId", "NombreProveedor", "NombreEstablecimiento", "NombreProducto", "CantidadEsperada"
 		};
 		foreach (Type tipo in tipos.Where((Type x) => x != typeof(AppUser)))
 		{
@@ -63,7 +63,7 @@ public class DominioEspanolTests
 			IEntityType[] negocio = (from x in modelo.GetEntityTypes()
 				where x.ClrType.Namespace == "FoodTrace.API.Domain.Entities" && x.ClrType != typeof(AppUser)
 				select x).ToArray();
-			Assert.Equal(13, negocio.Length);
+			Assert.Equal(15, negocio.Length);
 			IEntityType[] array = negocio;
 			foreach (IEntityType entidad in array)
 			{
@@ -102,9 +102,9 @@ public class DominioEspanolTests
 			PropertyInfo[] conjuntos = (from x in typeof(FoodTraceDbContext).GetProperties()
 				where x.PropertyType.IsGenericType && x.PropertyType.GetGenericTypeDefinition() == typeof(DbSet<>) && x.PropertyType.GenericTypeArguments[0].Namespace == "FoodTrace.API.Domain.Entities" && x.PropertyType.GenericTypeArguments[0] != typeof(AppUser)
 				select x).ToArray();
-			Assert.Equal(new string[13]
+			Assert.Equal(new string[15]
 			{
-				"AsignacionesCompra", "DetallesPedidoCompra", "Empresas", "Establecimientos", "IngredientesReceta", "NecesidadesIngredientes", "OrdenesProduccion", "PedidosCompra", "PresentacionesProveedor", "Productos",
+				"AsignacionesCompra", "DetallesOrdenRecepcion", "DetallesPedidoCompra", "Empresas", "Establecimientos", "IngredientesReceta", "NecesidadesIngredientes", "OrdenesProduccion", "OrdenesRecepcion", "PedidosCompra", "PresentacionesProveedor", "Productos",
 				"Proveedores", "UnidadesMedida", "VersionesReceta"
 			}, conjuntos.Select((PropertyInfo x) => x.Name).Order(StringComparer.Ordinal));
 		}

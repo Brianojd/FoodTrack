@@ -77,6 +77,8 @@ public sealed class ApiFixture : WebApplicationFactory<AutenticacionController>
 			{
 				InicializadorIdentidad.ComprobarResultado(await roles.CreateAsync(new IdentityRole(role)));
 			}
+			// Rol histórico fuera del catálogo ofrecido: existe para el usuario buyer y debe conservarse al editar.
+			InicializadorIdentidad.ComprobarResultado(await roles.CreateAsync(new IdentityRole("buyer")));
 			users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
 			await User("admin@test.invalid", Company, Roles.Todos);
 			await User("buyer@test.invalid", Company, new string[1] { "buyer" });

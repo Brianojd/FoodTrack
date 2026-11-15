@@ -10,7 +10,7 @@
     [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
     [Parameter] public List<VersionRecetaDto> Versiones { get; set; } = [];
     private ModeloPlanificacion modelo = new(), inicial = new();
-    protected override string RolRequerido => "planner";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => !modelo.EquivaleA(inicial);
     protected override void OnInitialized() { base.OnInitialized(); modelo = Modelo.Copiar(); inicial = modelo.Copiar(); }
     private Task GuardarAsync()

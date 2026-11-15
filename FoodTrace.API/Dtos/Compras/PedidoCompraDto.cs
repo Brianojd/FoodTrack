@@ -8,6 +8,10 @@ public sealed class PedidoCompraDto : EntidadEmpresaDto
 {
     [JsonPropertyName("supplierId")]
     public Guid ProveedorId { get; set; }
+    [JsonPropertyName("establishmentId")]
+    public Guid? EstablecimientoId { get; set; }
+    [JsonPropertyName("receiptOrderId")]
+    public Guid? OrdenRecepcionId { get; set; }
     [JsonPropertyName("status")]
     public int Estado { get; set; }
     [JsonPropertyName("createdBy")]
@@ -26,6 +30,4 @@ public sealed class PedidoCompraDto : EntidadEmpresaDto
     public string? MotivoDecision { get; set; }
     [JsonPropertyName("lines")]
     public List<DetallePedidoCompraDto> Detalles { get; set; } = [];
-    [JsonPropertyName("partialView")]
-    public bool VistaParcial { get; set; }
 }

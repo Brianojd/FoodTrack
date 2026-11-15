@@ -11,7 +11,7 @@
     [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
     private PedidoCompraDto pedido = new();
     private bool PuedeEnviar => pedido.Estado == 0 && pedido.Detalles.Any();
-    protected override string RolRequerido => "buyer";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => false;
     protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); }
     private Task EnviarAsync() => !PuedeEnviar ? Task.CompletedTask

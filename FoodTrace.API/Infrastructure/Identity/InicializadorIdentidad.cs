@@ -22,18 +22,19 @@ public static class InicializadorIdentidad
         var nombreEmpresa = Obligatorio("CompanyName"); var correo = Obligatorio("AdminEmail"); var contrasena = Obligatorio("AdminPassword");
         await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         var existente = await usuarios.FindByEmailAsync(correo);
+        if (existente is not null && (existente.EmpresaId != empresaId || !await usuarios.IsInRoleAsync(existente, "admin")))
+            throw new InvalidOperationException("Bootstrap identity conflicts with existing membership.");
+        // Reconcilia Roles.Todos aunque el admin ya exista; approver no está en Todos y se conserva solo como historial.
+        foreach (var role in Roles.Todos)
+            if (!await roles.RoleExistsAsync(role)) ComprobarResultado(await roles.CreateAsync(new IdentityRole(role)));
         if (existente is not null)
         {
-            if (existente.EmpresaId != empresaId || !await usuarios.IsInRoleAsync(existente, "admin"))
-                throw new InvalidOperationException("Bootstrap identity conflicts with existing membership.");
             await transaccion.CommitAsync(); return;
         }
         if (!await db.Empresas.AnyAsync(x => x.Id == empresaId))
         {
             db.Empresas.Add(new Empresa { Id = empresaId, Nombre = nombreEmpresa }); await db.SaveChangesAsync();
         }
-        foreach (var role in Roles.Todos)
-            if (!await roles.RoleExistsAsync(role)) ComprobarResultado(await roles.CreateAsync(new IdentityRole(role)));
         var administrador = new AppUser { EmpresaId = empresaId, UserName = correo, Email = correo };
         ComprobarResultado(await usuarios.CreateAsync(administrador, contrasena)); ComprobarResultado(await usuarios.AddToRoleAsync(administrador, "admin"));
         await transaccion.CommitAsync();

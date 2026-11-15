@@ -47,6 +47,16 @@ internal static class ConfiguracionRestricciones
             tabla.HasCheckConstraint("CK_DetallesPedidoCompra_CantidadPedidaPositiva", Positivo("CantidadPedida"));
             tabla.HasCheckConstraint("CK_DetallesPedidoCompra_NecesidadBrutaNoNegativa", NoNegativo("NecesidadBruta"));
         });
+        modelo.Entity<DetalleOrdenRecepcion>().ToTable(tabla =>
+        {
+            tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_PresentacionesPositivas", Positivo("CantidadPresentaciones"));
+            tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_PresentacionesEnteras",
+                $"{Decimal("CantidadPresentaciones")} = CAST([CantidadPresentaciones] AS bigint)");
+            tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_CantidadBasePositiva", Positivo("CantidadBasePresentacion"));
+            tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_CantidadEsperadaPositiva", Positivo("CantidadEsperada"));
+            tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_CantidadEsperadaExacta",
+                $"{Decimal("CantidadEsperada")} = {Decimal("CantidadPresentaciones")} * {Decimal("CantidadBasePresentacion")}");
+        });
     }
 
     private static string Decimal(string columna) => $"CAST([{columna}] AS decimal(18,6))";

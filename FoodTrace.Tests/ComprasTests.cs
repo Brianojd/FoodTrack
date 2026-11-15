@@ -106,7 +106,6 @@ public sealed class ComprasTests
 		EstadoCompras estado = new EstadoCompras();
 		estado.Seleccionar(pedido);
 		estado.Detalle.CantidadPresentaciones = 3m;
-		estado.Rechazo.Motivo = "Motivo sin enviar";
 		int num = 1;
 		List<PedidoCompraDto> list = new List<PedidoCompraDto>(num);
 		CollectionsMarshal.SetCount(list, num);
@@ -121,7 +120,6 @@ public sealed class ComprasTests
 		// La selección establecida arriba sigue siendo el pedido comprobado por Same.
 		Assert.Equal(pedido.Revision, estado.Seleccionado!.Revision);
 		Assert.Equal(3m, estado.Detalle.CantidadPresentaciones);
-		Assert.Equal("Motivo sin enviar", estado.Rechazo.Motivo);
 		Assert.True(estado.TieneCambios);
 		estado.Seleccionar(new PedidoCompraDto
 		{
@@ -129,6 +127,5 @@ public sealed class ComprasTests
 		});
 		Assert.Null(estado.EdicionCantidad);
 		Assert.Empty(estado.Detalle.Asignaciones);
-		Assert.Empty(estado.Rechazo.Motivo);
 	}
 }

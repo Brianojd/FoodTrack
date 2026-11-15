@@ -115,11 +115,6 @@ public class StructureTests
 		Type[] types = MapaContratoHistorico.TiposEntidad;
 		Assert.Equal(13, types.Length);
 		Type[] array = types;
-		// Campos aditivos autorizados en el DTO que no provienen de la entidad.
-		var propiedadesAditivas = new Dictionary<Type, string[]>
-		{
-			[typeof(FoodTrace.API.Domain.Entities.PedidoCompra)] = new[] { "VistaParcial" }
-		};
 		foreach (Type type in array)
 		{
 			object entity = Sample(type);
@@ -131,30 +126,14 @@ public class StructureTests
 			var dtoProps = dto.GetType().GetProperties().Select((PropertyInfo p) => p.Name).ToHashSet();
 			var entityProps = type.GetProperties().Select((PropertyInfo p) => p.Name).ToHashSet();
 			Assert.True(entityProps.IsSubsetOf(dtoProps), type.Name + " DTO omite campos de la entidad.");
-			if (propiedadesAditivas.TryGetValue(type, out var aditivas))
-			{
-				var extras = dtoProps.Except(entityProps).ToHashSet();
-				Assert.True(extras.SetEquals(aditivas), type.Name + " tiene campos aditivos no autorizados.");
-			}
-			else
-			{
-				Assert.Equal(entityProps.Count, dtoProps.Count);
-			}
+			Assert.Equal(entityProps.Count, dtoProps.Count);
 			JsonNode esperado = MapaContratoHistorico.SerializarEntidad(entity, type);
 			JsonNode actual = JsonSerializer.SerializeToNode(dto, dto.GetType(), options)!;
-			if (type == typeof(FoodTrace.API.Domain.Entities.PedidoCompra))
-			{
-				esperado["partialView"] = false;
-			}
 			Assert.True(JsonNode.DeepEquals(esperado, actual), type.Name + " JSON shape changed.");
 			object empty = Activator.CreateInstance(type)!;
 			object emptyDto = method.Invoke(null, new object[1] { empty })!;
 			JsonNode esperadoEmpty = MapaContratoHistorico.SerializarEntidad(empty, type);
 			JsonNode actualEmpty = JsonSerializer.SerializeToNode(emptyDto, emptyDto.GetType(), options)!;
-			if (type == typeof(FoodTrace.API.Domain.Entities.PedidoCompra))
-			{
-				esperadoEmpty["partialView"] = false;
-			}
 			Assert.True(JsonNode.DeepEquals(esperadoEmpty, actualEmpty), type.Name + " default JSON shape changed.");
 		}
 	}

@@ -52,7 +52,9 @@ public static class MapasValidacionServidor
         .Campo(m, nameof(m.VersionRecetaId), "RecipeVersionId", "VersionRecetaId").Campo(m, nameof(m.Cantidad), "Quantity", "CantidadPlanificada", "Cantidad")
         .Campo(m, nameof(m.UnidadMedidaId), "UnitId", "UnidadMedidaId").Campo(m, nameof(m.PorPorciones), "ByPortions", "PorPorciones")
         .Campo(m, nameof(m.Fecha), "Date", "FechaPlanificada", "Fecha");
-    public static MapaCamposServidor Pedido(ModeloPedidoCompra m) => new MapaCamposServidor(m).Campo(m, nameof(m.ProveedorId), "SupplierId", "ProveedorId");
+    public static MapaCamposServidor Pedido(ModeloPedidoCompra m) => new MapaCamposServidor(m)
+        .Campo(m, nameof(m.ProveedorId), "SupplierId", "ProveedorId")
+        .Campo(m, nameof(m.EstablecimientoId), "EstablishmentId", "EstablecimientoId");
     public static MapaCamposServidor Detalle(ModeloDetallePedido m)
     {
         var mapa = new MapaCamposServidor(m).Campo(m, nameof(m.PresentacionId), "SupplierPackId", "PackId", "PresentacionProveedorId", "PresentacionId")
@@ -73,5 +75,4 @@ public static class MapasValidacionServidor
         return mapa;
     }
     public static MapaCamposServidor Cantidad(ModeloCantidadPresentaciones m) => new MapaCamposServidor(m).Campo(m, nameof(m.Cantidad), "PackCount", "CantidadPresentaciones", "Cantidad");
-    public static MapaCamposServidor Rechazo(ModeloRechazoCompra m) => new MapaCamposServidor(m).Campo(m, nameof(m.Motivo), "Reason", "Motivo");
 }

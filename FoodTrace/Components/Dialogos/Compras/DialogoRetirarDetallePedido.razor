@@ -12,7 +12,7 @@
     [Parameter] public Guid DetalleId { get; set; }
     private PedidoCompraDto pedido = new();
     private Guid detalleId;
-    protected override string RolRequerido => "buyer";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => false;
     protected override void OnInitialized() { base.OnInitialized(); pedido = InstantaneaPedido.Copiar(Pedido); detalleId = DetalleId; }
     private Task RetirarAsync()

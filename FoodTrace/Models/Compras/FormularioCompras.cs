@@ -8,7 +8,6 @@ public sealed class FormularioCompras
     public Guid PresentacionProveedorId { get; set; }
     public decimal CantidadPresentaciones { get; set; } = 1;
     public decimal CantidadEdicion { get; set; } = 1;
-    public string MotivoRechazo { get; set; } = "";
     public PedidoCompraDto? PedidoSeleccionado { get; set; }
     public PedidoCompraDto? PedidoEdicion { get; set; }
     public DetallePedidoCompraDto? DetalleEdicion { get; set; }
@@ -22,6 +21,6 @@ public sealed class FormularioCompras
     public void Limpiar()
     {
         RestablecerSeleccion(); DetalleEdicion = null;
-        ProveedorId = PresentacionProveedorId = Guid.Empty; MotivoRechazo = "";
+        ProveedorId = PresentacionProveedorId = Guid.Empty;
     }
 }

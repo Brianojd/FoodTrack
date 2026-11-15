@@ -24,6 +24,8 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
     public DbSet<PedidoCompra> PedidosCompra => Set<PedidoCompra>();
     public DbSet<DetallePedidoCompra> DetallesPedidoCompra => Set<DetallePedidoCompra>();
     public DbSet<AsignacionCompra> AsignacionesCompra => Set<AsignacionCompra>();
+    public DbSet<OrdenRecepcion> OrdenesRecepcion => Set<OrdenRecepcion>();
+    public DbSet<DetalleOrdenRecepcion> DetallesOrdenRecepcion => Set<DetalleOrdenRecepcion>();
 
     public Guid EmpresaActualId => sesion.EmpresaId;
 
@@ -131,6 +133,11 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
                 if (!valid || entry.State == EntityState.Deleted) throw new ExcepcionRegla("Invalid persisted purchase transition.");
                 if (purchase.CreadoPorId != prior.CreadoPorId || purchase.FechaCreacion != prior.FechaCreacion || purchase.ProveedorId != prior.ProveedorId)
                     throw new ExcepcionRegla("Purchase ownership and creation audit are immutable.");
+                if (purchase.EstablecimientoId != prior.EstablecimientoId && purchase.EstablecimientoId is { } nuevoDestino)
+                    await BuscarDestinoValidoAsync(nuevoDestino, purchase.EmpresaId);
+                if (purchase.EstablecimientoId != prior.EstablecimientoId &&
+                    await OrdenesRecepcion.IgnoreQueryFilters().AnyAsync(x => x.EmpresaId == purchase.EmpresaId && x.PedidoCompraId == purchase.Id))
+                    throw new ExcepcionRegla("The destination cannot change after a receipt order exists.");
             }
             if (entry.Entity is DetallePedidoCompra line)
             {
@@ -151,6 +158,14 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
                         throw new ExcepcionRegla("Purchase packaging snapshot must match the selected supplier pack.");
                 }
             }
+            if (entry.Entity is OrdenRecepcion && entry.State != EntityState.Added)
+                throw new ExcepcionRegla("Receipt order snapshots are immutable.");
+            if (entry.Entity is OrdenRecepcion orden && entry.State == EntityState.Added)
+                await ValidarNuevaOrdenAsync(orden);
+            if (entry.Entity is DetalleOrdenRecepcion && entry.State != EntityState.Added)
+                throw new ExcepcionRegla("Receipt order detail snapshots are immutable.");
+            if (entry.Entity is DetalleOrdenRecepcion detalle && entry.State == EntityState.Added)
+                await ValidarNuevoDetalleOrdenAsync(detalle);
             if (entry.Entity is AsignacionCompra allocation && entry.State != EntityState.Added)
             {
                 if (entry.State == EntityState.Deleted || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not nameof(AsignacionCompra.Liberada) and not nameof(EntidadEmpresa.Revision)))
@@ -189,5 +204,49 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
             if (need.CantidadAsignada != total || need.CantidadAsignada > need.CantidadNecesaria || need.CantidadAsignada < 0)
                 throw new ExcepcionRegla("Saved allocation totals must match the requirement reservation.");
         }
+    }
+
+    private async Task ValidarNuevaOrdenAsync(OrdenRecepcion orden)
+    {
+        if (orden.Estado != EstadoOrdenRecepcion.Pendiente || orden.FechaCreacion == default)
+            throw new ExcepcionRegla("A new receipt order must have pending status and a creation timestamp.");
+        ServicioFlujo.Texto(orden.NombreProveedor); ServicioFlujo.Texto(orden.NombreEstablecimiento);
+        var pedido = ChangeTracker.Entries<PedidoCompra>().Where(x => x.State != EntityState.Deleted).Select(x => x.Entity).FirstOrDefault(x => x.Id == orden.PedidoCompraId)
+            ?? await PedidosCompra.IgnoreQueryFilters().Include(x => x.Detalles).ThenInclude(x => x.Asignaciones)
+                .SingleOrDefaultAsync(x => x.EmpresaId == orden.EmpresaId && x.Id == orden.PedidoCompraId);
+        if (pedido is null || pedido.Estado != EstadoPedidoCompra.Enviado || pedido.ProveedorId != orden.ProveedorId || pedido.EstablecimientoId != orden.EstablecimientoId)
+            throw new ExcepcionRegla("A receipt order must match a sent purchase and its destination.");
+        var proveedor = await Proveedores.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.EmpresaId == orden.EmpresaId && x.Id == orden.ProveedorId);
+        var destino = await Establecimientos.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.EmpresaId == orden.EmpresaId && x.Id == orden.EstablecimientoId);
+        if (proveedor?.Nombre != orden.NombreProveedor || destino?.Nombre != orden.NombreEstablecimiento)
+            throw new ExcepcionRegla("Receipt order company snapshots must match the source purchase.");
+        var lineas = ReglasPedidoCompra.DetallesActivos(pedido).ToArray();
+        if (lineas.Length == 0 || lineas.Length != orden.Detalles.Count)
+            throw new ExcepcionRegla("Receipt order details must match every active purchase line atomically.");
+        foreach (var detalle in orden.Detalles)
+        {
+            var original = lineas.FirstOrDefault(x => x.ProductoId == detalle.ProductoId && x.PresentacionProveedorId == detalle.PresentacionProveedorId &&
+                x.NombrePresentacion == detalle.NombrePresentacion && x.UnidadBaseId == detalle.UnidadBaseId &&
+                x.CantidadPresentaciones == detalle.CantidadPresentaciones && x.CantidadBasePresentacion == detalle.CantidadBasePresentacion && x.CantidadPedida == detalle.CantidadEsperada);
+            var producto = await Productos.IgnoreQueryFilters().SingleOrDefaultAsync(x => x.EmpresaId == orden.EmpresaId && x.Id == detalle.ProductoId);
+            if (original is null || producto?.Nombre != detalle.NombreProducto)
+                throw new ExcepcionRegla("Receipt order details must preserve valid purchase snapshots.");
+        }
+    }
+
+    private Task ValidarNuevoDetalleOrdenAsync(DetalleOrdenRecepcion detalle)
+    {
+        if (!ChangeTracker.Entries<OrdenRecepcion>().Any(x => x.State == EntityState.Added && x.Entity.Id == detalle.OrdenRecepcionId))
+            throw new ExcepcionRegla("Receipt order details must be created atomically with their order.");
+        if (detalle.CantidadEsperada != Cantidades.CantidadPresentaciones(detalle.CantidadPresentaciones, detalle.CantidadBasePresentacion))
+            throw new ExcepcionRegla("Receipt order expected quantities must equal whole packs times base content.");
+        ServicioFlujo.Texto(detalle.NombreProducto); ServicioFlujo.Texto(detalle.NombrePresentacion); ServicioFlujo.Texto(detalle.UnidadBaseId, 32);
+        return Task.CompletedTask;
+    }
+
+    private async Task BuscarDestinoValidoAsync(Guid destinoId, Guid empresaId)
+    {
+        if (destinoId == Guid.Empty || !await Establecimientos.IgnoreQueryFilters().AnyAsync(x => x.EmpresaId == empresaId && x.Id == destinoId))
+            throw new ExcepcionRegla("The purchase destination must belong to the same company.");
     }
 }

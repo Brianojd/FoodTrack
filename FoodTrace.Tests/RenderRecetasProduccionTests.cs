@@ -288,10 +288,10 @@ public sealed class RenderRecetasProduccionTests
 	}
 
 	[Theory]
-	[InlineData(new object[] { "planner", true })]
-	[InlineData(new object[] { "admin", false })]
+	[InlineData(new object[] { "admin", true })]
+	[InlineData(new object[] { "planner", false })]
 	[InlineData(new object[] { "buyer", false })]
-	public async Task Solo_planner_crea_y_las_necesidades_se_muestran_sin_recalcular(string rol, bool puedePlanificar)
+	public async Task Solo_admin_ve_modulos_y_las_necesidades_se_muestran_sin_recalcular(string rol, bool puedePlanificar)
 	{
 		Transporte transporte = new Transporte(rol);
 		using ClienteFoodTraceApi cliente = new ClienteFoodTraceApi(new HttpClient(transporte)
@@ -307,17 +307,25 @@ public sealed class RenderRecetasProduccionTests
 		{
 			await renderer.Dispatcher.InvokeAsync(async () =>
 			{
-				// Editors are modal now; render the embedded area and assert its entry action,
-				// while keeping the original role and server-persisted quantity checks.
+				// Con el catálogo cerrado, solo admin ve los módulos; los demás roles reciben el aviso sin datos.
 				HtmlRootComponent recetas = await renderer.RenderComponentAsync<Recetas>(ParameterView.FromDictionary(new Dictionary<string, object?> { ["EnContenedor"] = true }));
 				Assert.Equal(puedePlanificar, WebUtility.HtmlDecode(recetas.ToHtmlString()).Contains(">Crear receta</span>", StringComparison.Ordinal));
 				string html = WebUtility.HtmlDecode((await renderer.RenderComponentAsync<Produccion>()).ToHtmlString());
 				Assert.Equal(puedePlanificar, html.Contains(">Planificar producción</span>", StringComparison.Ordinal));
-				Assert.Contains("150 kg", html);
-				Assert.Contains("7 kg", html);
-				Assert.Contains("Necesidad bruta guardada", html);
-				Assert.Contains($"/produccion?orden={transporte.OrdenId}", html);
-				Assert.DoesNotContain("987 kg", html);
+				if (puedePlanificar)
+				{
+					Assert.Contains("150 kg", html);
+					Assert.Contains("7 kg", html);
+					Assert.Contains("Necesidad bruta guardada", html);
+					Assert.Contains($"/produccion?orden={transporte.OrdenId}", html);
+					Assert.DoesNotContain("987 kg", html);
+				}
+				else
+				{
+					Assert.Contains("Su rol no tiene acceso", html);
+					Assert.DoesNotContain("150 kg", html);
+					Assert.DoesNotContain("987 kg", html);
+				}
 			});
 		}
 		finally
@@ -332,7 +340,7 @@ public sealed class RenderRecetasProduccionTests
 	[Fact]
 	public async Task Una_carga_fallida_conserva_atomicamente_todos_los_datos_anteriores()
 	{
-		using ClienteFoodTraceApi cliente = new ClienteFoodTraceApi(new HttpClient(new Transporte("buyer")
+		using ClienteFoodTraceApi cliente = new ClienteFoodTraceApi(new HttpClient(new Transporte("admin")
 		{
 			FallarNecesidades = true
 		})

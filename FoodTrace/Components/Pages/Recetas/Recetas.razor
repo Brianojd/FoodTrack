@@ -9,16 +9,17 @@ else
 <MudStack Row="true" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2" Class="mb-4">
     <MudText Typo="Typo.h6" HtmlTag="h2">Recetas y versiones</MudText>
     <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
-        @if (Sesion.TieneRol("planner")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Ocupado || Estado.Catalogos is null)" OnClick="NuevaAsync">Crear receta</MudButton> }
+        @if (Sesion.TieneRol("admin")) { <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(Ocupado || Estado.Catalogos is null)" OnClick="NuevaAsync">Crear receta</MudButton> }
         <MudTooltip Text="Consulta la lista sin reemplazar la versión seleccionada ni descartar borradores."><MudButton Variant="Variant.Outlined" Color="Color.Secondary" Disabled="Ocupado" OnClick="ActualizarAsync">Actualizar</MudButton></MudTooltip>
     </MudStack>
 </MudStack>
 <MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+@if (!PuedeVerRecetas) { <MudAlert Severity="Severity.Info" role="status" Class="mb-4">Su rol no tiene acceso a recetas y versiones. Consulte a un administrador si necesita ver estos registros.</MudAlert> }
 @if (Ocupado && Estado.Catalogos is null) { <EstadoCarga /> }
 @if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
 @if (Estado.Catalogos is not null)
 {
-    @if (!Sesion.TieneRol("planner")) { <MudText Typo="Typo.body2" Class="mb-3">Consulta de recetas. Para crear, editar o publicar se requiere el rol Planificador.</MudText> }
+    @if (!Sesion.TieneRol("admin")) { <MudText Typo="Typo.body2" Class="mb-3">Consulta de recetas. Para crear, editar o publicar se requiere el rol Administrador.</MudText> }
     @if (Estado.Catalogos.Productos.Count == 0) { <MudText Typo="Typo.body2" Class="mb-3">Se necesita un producto resultado para crear una receta. Solicite su registro a un administrador.</MudText> }
     @if (Estado.Versiones.Count == 0)
     {
@@ -33,7 +34,7 @@ else
     @if (Estado.Seleccionada is { } seleccionada)
     {
         <MudPaper Outlined="true" Elevation="0" Class="pa-4 mt-4">
-            @if (Sesion.TieneRol("planner"))
+            @if (Sesion.TieneRol("admin"))
             {
                 <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2" Class="mb-3">
                     @if (seleccionada.Publicada)
@@ -62,12 +63,13 @@ else
     protected override Task OnInitializedAsync() => EnContenedor ? base.OnInitializedAsync() : Task.CompletedTask;
     private EstadoRecetas Estado => Formularios.Recetas;
     private readonly ControlCargaModulo carga = new();
+    private bool PuedeVerRecetas => Sesion.TieneRol("admin");
 
     protected override Task ActualizarAsync() => EjecutarAsync(async ct =>
     {
         var turno = carga.Iniciar(ct);
         var catalogos = Catalogos.ObtenerCatalogosAsync(turno.Token);
-        var versiones = RecetasApi.ObtenerRecetasAsync(turno.Token);
+        var versiones = PuedeVerRecetas ? RecetasApi.ObtenerRecetasAsync(turno.Token) : Task.FromResult(new List<VersionRecetaDto>());
         await Task.WhenAll(catalogos, versiones);
         if (!Vigente || !carga.EsActual(turno.Generacion)) return;
         Estado.Catalogos = await catalogos;
@@ -84,7 +86,7 @@ else
     }
     private async Task NuevaAsync()
     {
-        if (Ocupado || !Sesion.TieneRol("planner") || Estado.Catalogos is null) return;
+        if (Ocupado || !Sesion.TieneRol("admin") || Estado.Catalogos is null) return;
         if (Estado.Seleccionada is not null)
         {
             if (!await AutorizarDescarteAsync()) return;
@@ -96,11 +98,11 @@ else
             { x => x.Modelo, Estado.Formulario.Copiar() }, { x => x.Catalogos, Estado.Catalogos },
             { x => x.CatalogoCambiado, EventCallback.Factory.Create<CatalogosDto>(this, AceptarCatalogo) }
         };
-        await AbrirEditorAsync<DialogoVersionReceta, VersionRecetaDto>("Crear receta", parametros, Estado.AceptarGuardada, MaxWidth.Large, "planner");
+        await AbrirEditorAsync<DialogoVersionReceta, VersionRecetaDto>("Crear receta", parametros, Estado.AceptarGuardada, MaxWidth.Large, "admin");
     }
     private async Task EditarAsync(VersionRecetaDto version)
     {
-        if (Ocupado || !Sesion.TieneRol("planner") || version.Publicada || Estado.Catalogos is null) return;
+        if (Ocupado || !Sesion.TieneRol("admin") || version.Publicada || Estado.Catalogos is null) return;
         if (Estado.Seleccionada?.Id != version.Id)
         {
             if (!await AutorizarDescarteAsync()) return;
@@ -113,7 +115,7 @@ else
             { x => x.Modelo, Estado.Formulario.Copiar() }, { x => x.Version, original }, { x => x.Catalogos, Estado.Catalogos },
             { x => x.CatalogoCambiado, EventCallback.Factory.Create<CatalogosDto>(this, AceptarCatalogo) }
         };
-        await AbrirEditorAsync<DialogoVersionReceta, VersionRecetaDto>($"Editar {original.Nombre} · versión {original.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "planner");
+        await AbrirEditorAsync<DialogoVersionReceta, VersionRecetaDto>($"Editar {original.Nombre} · versión {original.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "admin");
     }
     private async Task RecargarSeleccionAsync()
     {
@@ -131,16 +133,16 @@ else
     }
     private Task PublicarAsync()
     {
-        if (Ocupado || !Sesion.TieneRol("planner") || Estado.Seleccionada is not { Publicada: false } version || Estado.Catalogos is null) return Task.CompletedTask;
+        if (Ocupado || !Sesion.TieneRol("admin") || Estado.Seleccionada is not { Publicada: false } version || Estado.Catalogos is null) return Task.CompletedTask;
         if (Estado.TieneCambios) { MostrarError("Guarde o descarte el borrador local antes de publicar la versión guardada."); return Task.CompletedTask; }
         var parametros = new DialogParameters<DialogoPublicarReceta> { { x => x.Version, version }, { x => x.Catalogos, Estado.Catalogos } };
-        return AbrirEditorAsync<DialogoPublicarReceta, VersionRecetaDto>($"Publicar {version.Nombre} · versión {version.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "planner");
+        return AbrirEditorAsync<DialogoPublicarReceta, VersionRecetaDto>($"Publicar {version.Nombre} · versión {version.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "admin");
     }
     private Task CrearVersionAsync()
     {
-        if (!Sesion.TieneRol("planner") || Estado.Seleccionada is not { Publicada: true } version || Estado.Catalogos is null) return Task.CompletedTask;
+        if (!Sesion.TieneRol("admin") || Estado.Seleccionada is not { Publicada: true } version || Estado.Catalogos is null) return Task.CompletedTask;
         var parametros = new DialogParameters<DialogoCrearVersionReceta> { { x => x.Version, version }, { x => x.Catalogos, Estado.Catalogos } };
-        return AbrirEditorAsync<DialogoCrearVersionReceta, VersionRecetaDto>($"Crear versión desde {version.Nombre} · v{version.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "planner");
+        return AbrirEditorAsync<DialogoCrearVersionReceta, VersionRecetaDto>($"Crear versión desde {version.Nombre} · v{version.NumeroVersion}", parametros, Estado.AceptarGuardada, MaxWidth.Large, "admin");
     }
     private void AceptarCatalogo(CatalogosDto datos) { if (Vigente) Estado.Catalogos = datos; }
     public override void Dispose() { carga.Dispose(); base.Dispose(); }

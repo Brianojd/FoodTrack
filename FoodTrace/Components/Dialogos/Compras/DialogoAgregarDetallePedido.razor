@@ -1,9 +1,9 @@
 @inherits DialogoEdicionBase
 @inject IServicioCompras Api
 
-<MarcoDialogoEdicion Control="this" GuardarDisponible="@(!requiereActualizar && pedido.Estado == 0 && Catalogos.Presentaciones.Any(x => x.ProveedorId == pedido.ProveedorId))">
+    <MarcoDialogoEdicion Control="this" GuardarDisponible="@(!requiereActualizar && pedido.Estado == 0 && Catalogos.Presentaciones.Any(x => x.ProveedorId == pedido.ProveedorId))" UsarFormulario="false" Guardar="GuardarDetalleDesdeDialogoAsync" EtiquetaGuardar="Agregar detalle">
     <MudText Typo="Typo.body2" Class="mb-3">Pedido @pedido.Id. Se conservarán su revisión y las revisiones de necesidades de esta apertura. No representa reserva de inventario.</MudText>
-    <EditorDetallesPedido Modelo="modelo" Pedido="pedido" Catalogos="Catalogos" Necesidades="necesidades" Produccion="produccion" Ocupado="@(Bloqueado || requiereActualizar)" NecesidadesDesactualizadas="requiereActualizar" Guardar="GuardarAsync" FormId="FormId" AccionesExternas="true" />
+    <EditorDetallesPedido @ref="editor" Modelo="modelo" Pedido="pedido" Catalogos="Catalogos" Necesidades="necesidades" Produccion="produccion" Ocupado="@(Bloqueado || requiereActualizar)" NecesidadesDesactualizadas="requiereActualizar" Guardar="GuardarAsync" FormId="FormId" AccionesExternas="true" />
 </MarcoDialogoEdicion>
 
 @code {
@@ -18,8 +18,9 @@
     private List<NecesidadIngredienteDto> necesidades = [];
     private List<OrdenProduccionDto> produccion = [];
     private ModeloDetallePedido modelo = new(), inicial = new();
+    private FoodTrace.Components.Compras.EditorDetallesPedido? editor;
     private bool requiereActualizar;
-    protected override string RolRequerido => "buyer";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => !modelo.EquivaleA(inicial);
     protected override void OnInitialized()
     {
@@ -42,6 +43,8 @@
         Validacion.CapturarEnvio(); // Selected dictionary order is exactly the payload array order.
         return GuardarEnServidorAsync(ct => Api.AgregarDetalleCompraAsync(pedido.Id, entrada, ct));
     }
+
+    private Task GuardarDetalleDesdeDialogoAsync() => editor?.ValidarYGuardarAsync() ?? Task.CompletedTask;
     protected override async Task AlErrorApiAsync(ExcepcionApi ex)
     {
         if (ex.Estado != System.Net.HttpStatusCode.Conflict) return;

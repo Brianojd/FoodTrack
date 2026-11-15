@@ -36,16 +36,23 @@ public sealed class ServicioUsuarios(FoodTraceDbContext db, SesionEmpresa sesion
             ?? throw new KeyNotFoundException();
         if (usuario.Id == sesion.UsuarioId) throw new ExcepcionRegla("Ask another administrator to change your own membership.");
         await using var transaccion = await db.Database.BeginTransactionAsync(cancelacion);
-        InicializadorIdentidad.ComprobarResultado(await usuarios.RemoveFromRolesAsync(usuario, await usuarios.GetRolesAsync(usuario)));
-        InicializadorIdentidad.ComprobarResultado(await usuarios.AddToRolesAsync(usuario, entrada.Roles));
+        // Solo se administran los roles del catálogo ofrecido; los roles históricos del usuario se conservan,
+        // nunca se quitan silenciosamente al editar la habilitación o los permisos.
+        var actuales = await usuarios.GetRolesAsync(usuario);
+        var historicos = actuales.Except(Roles.Todos).ToArray();
+        var paraQuitar = actuales.Intersect(Roles.Todos).Except(entrada.Roles).ToArray();
+        if (paraQuitar.Length != 0)
+            InicializadorIdentidad.ComprobarResultado(await usuarios.RemoveFromRolesAsync(usuario, paraQuitar));
+        InicializadorIdentidad.ComprobarResultado(await usuarios.AddToRolesAsync(usuario, entrada.Roles.Except(actuales).ToArray()));
         usuario.Habilitado = entrada.Habilitado;
         InicializadorIdentidad.ComprobarResultado(await usuarios.UpdateSecurityStampAsync(usuario));
-        await transaccion.CommitAsync(cancelacion); return new() { Id = usuario.Id, Correo = usuario.Email, Habilitado = usuario.Habilitado, Roles = entrada.Roles };
+        await transaccion.CommitAsync(cancelacion);
+        return new() { Id = usuario.Id, Correo = usuario.Email, Habilitado = usuario.Habilitado, Roles = entrada.Roles.Concat(historicos).Order().ToArray() };
     }
 
     private static void ValidarRoles(string[] roles)
     {
         if (roles.Length == 0 || roles.Distinct().Count() != roles.Length || roles.Except(Roles.Todos).Any())
-            throw new ExcepcionRegla("Select unique roles from admin, planner, buyer, approver.");
+            throw new ExcepcionRegla("Select unique roles from admin and operator; historical roles are preserved automatically.");
     }
 }

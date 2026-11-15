@@ -42,5 +42,5 @@ else
     [Parameter] public string UsuarioActualId { get; set; } = "";
     [Parameter] public EventCallback<UsuarioDto> Editar { get; set; }
     private static string NombreRol(string rol) => rol switch
-    { "admin" => "Administrador", "planner" => "Planificador", "buyer" => "Comprador", "approver" => "Aprobador", _ => "Rol no reconocido" };
+    { "admin" => "Administrador", "operator" => "Operador", "planner" => "Planificador", "buyer" => "Comprador", "approver" => "Aprobador", _ => "Rol no reconocido" };
 }

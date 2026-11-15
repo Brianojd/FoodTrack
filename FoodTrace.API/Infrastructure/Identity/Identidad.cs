@@ -8,12 +8,13 @@ namespace FoodTrace.API.Infrastructure.Identity;
 public static class Roles
 {
     public const string Administrador = "admin";
+    public const string Operador = "operator";
+    // Roles históricos conservados por compatibilidad: existen en bases reales como membresías
+    // que se preservan, pero no se ofrecen en nuevas asignaciones ni crea el inicializador.
     public const string Planificador = "planner";
     public const string Comprador = "buyer";
-    public const string Operador = "operator";
-    // Aprobador se mantiene definido por trazabilidad; ya no forma parte del catálogo funcional.
     public const string Aprobador = "approver";
-    public static readonly string[] Todos = [Administrador, Planificador, Comprador, Operador];
+    public static readonly string[] Todos = [Administrador, Operador];
 }
 
 public sealed class SesionEmpresa(IHttpContextAccessor accesoContexto)

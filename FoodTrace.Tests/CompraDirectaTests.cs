@@ -40,15 +40,16 @@ public sealed class CompraDirectaTests
     }
 
     [Fact]
-    public async Task Compra_directa_se_crea_envia_y_aprueba_sin_asignaciones()
+    public async Task Compra_directa_se_crea_y_envia_sin_asignaciones()
     {
         using ApiFixture app = new ApiFixture();
         await app.Seed();
         using HttpClient client = await app.Login("admin@test.invalid");
+        JsonElement site = await Send(client, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(client, "/api/products", new { name = "Direct product", baseUnitId = "kg" });
         JsonElement supplier = await Send(client, "/api/suppliers", new { name = "Direct supplier" });
         JsonElement pack = await Send(client, "/api/packs", new { supplierId = Id(supplier), productId = Id(product), name = "10 kg", unitId = "kg", quantity = 10 });
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 3, allocations = Array.Empty<object>() });
         JsonElement line = Assert.Single(purchase.GetProperty("lines").EnumerateArray());
         Assert.Equal(30m, line.GetProperty("orderedAmount").GetDecimal());
@@ -56,9 +57,7 @@ public sealed class CompraDirectaTests
         Assert.Empty(line.GetProperty("allocations").EnumerateArray());
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/submit", new { revision = Revision(purchase) });
         Assert.Equal(1, purchase.GetProperty("status").GetInt32());
-        purchase = await Send(client, $"/api/purchases/{Id(purchase)}/approve", new { revision = Revision(purchase) });
-        Assert.Equal(2, purchase.GetProperty("status").GetInt32());
-        Assert.NotEqual(JsonValueKind.Null, purchase.GetProperty("decidedAt").ValueKind);
+        Assert.Equal(JsonValueKind.Null, purchase.GetProperty("decidedAt").ValueKind);
     }
 
     [Fact]
@@ -67,11 +66,12 @@ public sealed class CompraDirectaTests
         using ApiFixture app = new ApiFixture();
         await app.Seed();
         using HttpClient admin = await app.Login("admin@test.invalid");
+        JsonElement site = await Send(admin, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(admin, "/api/products", new { name = "Editable", baseUnitId = "kg" });
         JsonElement supplier = await Send(admin, "/api/suppliers", new { name = "Supplier" });
         JsonElement pack = await Send(admin, "/api/packs", new { supplierId = Id(supplier), productId = Id(product), name = "5 kg", unitId = "kg", quantity = 5 });
-        using HttpClient client = await app.Login("buyer@test.invalid");
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        using HttpClient client = await app.Login("admin@test.invalid");
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 2, allocations = Array.Empty<object>() });
         JsonElement line = Assert.Single(purchase.GetProperty("lines").EnumerateArray());
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines/{Id(line)}", new { revision = Revision(purchase), packCount = 4 }, HttpMethod.Put);
@@ -95,7 +95,7 @@ public sealed class CompraDirectaTests
         recipe = await Send(client, $"/api/recipes/{Id(recipe)}/publish", new { revision = Revision(recipe) });
         JsonElement need = (await Send(client, "/api/production", new { establishmentId = Id(site), recipeVersionId = Id(recipe), quantity = 3, unitId = "kg", date = "2026-10-12" })).GetProperty("requirements")[0];
         Assert.Equal(3m, need.GetProperty("amount").GetDecimal());
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 1, allocations = new[] { new { requirementId = Id(need), amount = 3, revision = Revision(need) } } })).StatusCode);
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 2, allocations = new[] { new { requirementId = Id(need), amount = 3, revision = Revision(need) } } });
         JsonElement line = Assert.Single(purchase.GetProperty("lines").EnumerateArray());
@@ -103,16 +103,12 @@ public sealed class CompraDirectaTests
         Assert.Equal(3m, line.GetProperty("grossNeed").GetDecimal());
         Assert.Equal(Id(need), Assert.Single(line.GetProperty("allocations").EnumerateArray()).GetProperty("requirementId").GetGuid());
         JsonElement stale = need;
-        JsonElement other = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement other = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/purchases/{Id(other)}/lines", new { revision = Revision(other), supplierPackId = Id(pack), packCount = 2, allocations = new[] { new { requirementId = Id(need), amount = 3, revision = Revision(need) } } })).StatusCode);
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/submit", new { revision = Revision(purchase) });
         Assert.Equal(1, purchase.GetProperty("status").GetInt32());
         JsonElement released = (await client.GetFromJsonAsync<JsonElement>("/api/needs")).EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == Id(need));
         Assert.Equal(3m, released.GetProperty("allocated").GetDecimal());
-        purchase = await Send(client, $"/api/purchases/{Id(purchase)}/reject", new { revision = Revision(purchase), reason = "Changed plans" });
-        Assert.Equal(3, purchase.GetProperty("status").GetInt32());
-        released = (await client.GetFromJsonAsync<JsonElement>("/api/needs")).EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == Id(need));
-        Assert.Equal(0m, released.GetProperty("allocated").GetDecimal());
     }
 
     [Fact]
@@ -121,10 +117,11 @@ public sealed class CompraDirectaTests
         using ApiFixture app = new ApiFixture();
         await app.Seed();
         using HttpClient client = await app.Login("admin@test.invalid");
+        JsonElement site = await Send(client, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(client, "/api/products", new { name = "Zero", baseUnitId = "kg" });
         JsonElement supplier = await Send(client, "/api/suppliers", new { name = "Supplier" });
         JsonElement pack = await Send(client, "/api/packs", new { supplierId = Id(supplier), productId = Id(product), name = "1 kg", unitId = "kg", quantity = 1 });
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 0, allocations = Array.Empty<object>() })).StatusCode);
     }
 
@@ -134,11 +131,12 @@ public sealed class CompraDirectaTests
         using ApiFixture app = new ApiFixture();
         await app.Seed();
         using HttpClient client = await app.Login("admin@test.invalid");
+        JsonElement site = await Send(client, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(client, "/api/products", new { name = "Other", baseUnitId = "kg" });
         JsonElement supplierA = await Send(client, "/api/suppliers", new { name = "Supplier A" });
         JsonElement supplierB = await Send(client, "/api/suppliers", new { name = "Supplier B" });
         JsonElement pack = await Send(client, "/api/packs", new { supplierId = Id(supplierA), productId = Id(product), name = "1 kg", unitId = "kg", quantity = 1 });
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplierB) });
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplierB), establishmentId = Id(site) });
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 1, allocations = Array.Empty<object>() })).StatusCode);
     }
 
@@ -149,10 +147,11 @@ public sealed class CompraDirectaTests
         await app.Seed();
         using HttpClient admin = await app.Login("admin@test.invalid");
         using HttpClient other = await app.Login("other@test.invalid");
+        JsonElement site = await Send(admin, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(admin, "/api/products", new { name = "Isolated", baseUnitId = "kg" });
         JsonElement supplier = await Send(admin, "/api/suppliers", new { name = "Supplier" });
         JsonElement pack = await Send(admin, "/api/packs", new { supplierId = Id(supplier), productId = Id(product), name = "1 kg", unitId = "kg", quantity = 1 });
-        JsonElement purchase = await Send(admin, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement purchase = await Send(admin, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         purchase = await Send(admin, $"/api/purchases/{Id(purchase)}/lines", new { revision = Revision(purchase), supplierPackId = Id(pack), packCount = 1, allocations = Array.Empty<object>() });
         Assert.Empty((await other.GetFromJsonAsync<JsonElement>("/api/purchases")).EnumerateArray());
         Assert.Equal(HttpStatusCode.NotFound, (await other.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/submit", new { revision = Revision(purchase) })).StatusCode);
@@ -164,10 +163,11 @@ public sealed class CompraDirectaTests
         using ApiFixture app = new ApiFixture();
         await app.Seed();
         using HttpClient client = await app.Login("admin@test.invalid");
+        JsonElement site = await Send(client, "/api/establishments", new { name = "Kitchen" });
         JsonElement product = await Send(client, "/api/products", new { name = "Stale", baseUnitId = "kg" });
         JsonElement supplier = await Send(client, "/api/suppliers", new { name = "Supplier" });
         JsonElement pack = await Send(client, "/api/packs", new { supplierId = Id(supplier), productId = Id(product), name = "1 kg", unitId = "kg", quantity = 1 });
-        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier) });
+        JsonElement purchase = await Send(client, "/api/purchases", new { supplierId = Id(supplier), establishmentId = Id(site) });
         Guid oldRevision = Revision(purchase);
         purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new { revision = oldRevision, supplierPackId = Id(pack), packCount = 1, allocations = Array.Empty<object>() });
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/submit", new { revision = oldRevision })).StatusCode);
@@ -189,6 +189,40 @@ public sealed class CompraDirectaTests
         Assert.Empty(modelo.Validar(pedido, catalogos, new List<NecesidadIngredienteDto>()));
         AgregarDetalleCompraDto entrada = modelo.ParaEnviar(pedido.Revision);
         Assert.Empty(entrada.Asignaciones);
+    }
+
+    [Fact]
+    public void Modelo_propuesta_agrupa_faltantes_y_redondea_presentaciones()
+    {
+        Guid producto = Guid.NewGuid();
+        Guid proveedorA = Guid.NewGuid();
+        Guid proveedorB = Guid.NewGuid();
+        Guid packA = Guid.NewGuid();
+        Guid packB = Guid.NewGuid();
+        Guid necesidadA = Guid.NewGuid();
+        Guid necesidadB = Guid.NewGuid();
+        CatalogosDto catalogos = new()
+        {
+            Productos = [new ProductoDto { Id = producto, Nombre = "Harina", UnidadBaseId = "kg" }],
+            Presentaciones =
+            [
+                new PresentacionProveedorDto { Id = packA, ProveedorId = proveedorA, ProductoId = producto, Nombre = "Bolsa 5 kg", CantidadBase = 5m, UnidadMedidaId = "kg" },
+                new PresentacionProveedorDto { Id = packB, ProveedorId = proveedorB, ProductoId = producto, Nombre = "Bolsa 10 kg", CantidadBase = 10m, UnidadMedidaId = "kg" }
+            ]
+        };
+        var propuesta = ModeloPropuestaCompra.Crear(
+        [
+            new NecesidadIngredienteDto { Id = necesidadA, ProductoId = producto, UnidadBaseId = "kg", CantidadNecesaria = 7m, CantidadAsignada = 2m },
+            new NecesidadIngredienteDto { Id = necesidadB, ProductoId = producto, UnidadBaseId = "kg", CantidadNecesaria = 6m, CantidadAsignada = 1m }
+        ], catalogos);
+
+        var linea = Assert.Single(propuesta.Lineas);
+        Assert.Equal(10m, linea.Faltante);
+        Assert.Equal(2, linea.Opciones.Count);
+        linea.SeleccionarPresentacion(packA);
+        Assert.Equal(2m, linea.CantidadPresentaciones);
+        Assert.Equal(10m, linea.CantidadCubierta);
+        Assert.Equal(2, linea.Necesidades.Count);
     }
 
     [Fact]
@@ -224,8 +258,9 @@ public sealed class CompraDirectaTests
     [Fact]
     public async Task Pagina_habilita_enviar_con_linea_directa_y_oculta_seccion_sin_necesidades()
     {
-        TransporteCompras transporte = new TransporteCompras("buyer", 0);
+        TransporteCompras transporte = new TransporteCompras("admin", 0);
         PedidoCompraDto pedido = transporte.PrepararPedido();
+        pedido.EstablecimientoId = Guid.NewGuid();
         pedido.Detalles[0].Asignaciones = new List<AsignacionCompraDto>();
         pedido.Detalles[0].NecesidadBruta = 0m;
         using ClienteFoodTraceApi cliente = new ClienteFoodTraceApi(new HttpClient(transporte) { BaseAddress = new Uri("https://example.invalid") });

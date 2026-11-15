@@ -11,7 +11,7 @@
     [Parameter, EditorRequired] public VersionRecetaDto Version { get; set; } = new();
     [Parameter, EditorRequired] public CatalogosDto Catalogos { get; set; } = new();
     private Guid id, revisionOriginal;
-    protected override string RolRequerido => "planner";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => false;
     protected override void OnInitialized() { base.OnInitialized(); id = Version.Id; revisionOriginal = Version.Revision; }
     private Task PublicarAsync() => Version.Publicada ? Task.CompletedTask

@@ -96,12 +96,12 @@ public class ApiTests
 		Assert.True((await Send(admin, "/api/users/" + buyerId, new
 		{
 			enabled = true,
-			roles = new string[1] { "admin" }
+			roles = new string[1] { "operator" }
 		}, HttpMethod.Put)).GetProperty("enabled").GetBoolean());
 		Assert.Equal(HttpStatusCode.Unauthorized, (await oldBuyer.GetAsync("/api/catalogs")).StatusCode);
 		using HttpClient current = await app.Login("buyer@test.invalid");
 		JsonElement identity = await current.GetFromJsonAsync<JsonElement>("/api/me");
-		Assert.Equal<string[]>(new string[1] { "admin" }, (from x in identity.GetProperty("roles").EnumerateArray()
+		Assert.Equal<string[]>(new string[1] { "operator" }, (from x in identity.GetProperty("roles").EnumerateArray()
 			select x.GetString()).ToArray());
 		Assert.Equal(HttpStatusCode.Forbidden, (await current.PostAsJsonAsync("/api/purchases", new
 		{
@@ -156,13 +156,13 @@ public class ApiTests
 		await Send(admin, "/api/users/" + buyerId, new
 		{
 			enabled = false,
-			roles = new string[1] { "buyer" }
+			roles = new string[1] { "operator" }
 		}, HttpMethod.Put);
 		Assert.Equal(HttpStatusCode.Unauthorized, (await buyer.GetAsync("/api/catalogs")).StatusCode);
 	}
 
 	[Fact]
-	public async Task Http_workflow_snapshots_needs_allocates_packs_and_approves_with_conflicts()
+	public async Task Http_workflow_snapshots_needs_allocates_packs_and_conflicts()
 	{
 		using ApiFixture app = new ApiFixture();
 		await app.Seed();
@@ -238,7 +238,8 @@ public class ApiTests
 		Assert.Equal(20m, needs.Single((JsonElement x) => x.GetProperty("productId").GetGuid() == Id(cheese)).GetProperty("amount").GetDecimal());
 		JsonElement purchase = await Send(client, "/api/purchases", new
 		{
-			supplierId = Id(supplier)
+			supplierId = Id(supplier),
+			establishmentId = Id(site)
 		});
 		purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new
 		{
@@ -260,7 +261,8 @@ public class ApiTests
 		Assert.Equal(150m, line.GetProperty("grossNeed").GetDecimal());
 		JsonElement competing = await Send(client, "/api/purchases", new
 		{
-			supplierId = Id(supplier)
+			supplierId = Id(supplier),
+			establishmentId = Id(site)
 		});
 		Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/purchases/{Id(competing)}/lines", new
 		{
@@ -282,19 +284,20 @@ public class ApiTests
 		{
 			revision = draftRevision
 		});
-		Assert.Equal(HttpStatusCode.Forbidden, (await buyer.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/approve", new
-		{
-			revision = Revision(purchase)
-		})).StatusCode);
-		Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/approve", new
+		Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/submit", new
 		{
 			revision = draftRevision
 		})).StatusCode);
-		purchase = await Send(client, $"/api/purchases/{Id(purchase)}/approve", new
+		Assert.Equal(HttpStatusCode.NotFound, (await buyer.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/approve", new
 		{
 			revision = Revision(purchase)
-		});
-		Assert.NotEqual(JsonValueKind.Null, purchase.GetProperty("decidedAt").ValueKind);
+		})).StatusCode);
+		Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync($"/api/purchases/{Id(purchase)}/reject", new
+		{
+			revision = Revision(purchase),
+			reason = "Circuito eliminado"
+		})).StatusCode);
+		Assert.Equal(JsonValueKind.Null, purchase.GetProperty("decidedAt").ValueKind);
 		Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/purchases/{Id(purchase)}/lines/{Id(line)}", new
 		{
 			revision = Revision(purchase),
@@ -348,7 +351,7 @@ public class ApiTests
 	}
 
 	[Fact]
-	public async Task Rejection_releases_allocations_and_draft_edits_require_current_revision()
+	public async Task Retirar_libera_asignaciones_y_las_ediciones_de_borrador_exigen_revision_actual()
 	{
 		using ApiFixture app = new ApiFixture();
 		await app.Seed();
@@ -426,7 +429,8 @@ public class ApiTests
 		})).GetProperty("requirements")[0];
 		JsonElement purchase = await Send(client, "/api/purchases", new
 		{
-			supplierId = Id(supplier)
+			supplierId = Id(supplier),
+			establishmentId = Id(site)
 		});
 		purchase = await Send(client, $"/api/purchases/{Id(purchase)}/lines", new
 		{
@@ -480,14 +484,7 @@ public class ApiTests
 		{
 			revision = Revision(purchase)
 		});
-		Assert.True((await Send(client, $"/api/purchases/{Id(purchase)}/reject", new
-		{
-			revision = Revision(purchase),
-			reason = "Choose another supplier"
-		})).GetProperty("lines")[0].GetProperty("allocations")[0].GetProperty("released").GetBoolean());
-		JsonElement updated = (await client.GetFromJsonAsync<JsonElement>("/api/needs"))[0];
-		Assert.Equal(0m, updated.GetProperty("allocated").GetDecimal());
-		Assert.Equal(3m, updated.GetProperty("amount").GetDecimal());
+		Assert.Equal(1, purchase.GetProperty("status").GetInt32());
 	}
 
 	[Fact]
@@ -536,12 +533,14 @@ public class ApiTests
 		using ApiFixture app = new ApiFixture();
 		await app.Seed();
 		using HttpClient client = await app.Login("admin@test.invalid");
+		JsonElement site = await Send(client, "/api/establishments", new { name = "Kitchen" });
 		JsonElement purchase = await Send(client, "/api/purchases", new
 		{
 			supplierId = Id(await Send(client, "/api/suppliers", new
 			{
 				name = "Supplier"
-			}))
+			})),
+			establishmentId = Id(site)
 		});
 		using IServiceScope firstScope = app.Services.CreateScope();
 		using IServiceScope secondScope = app.Services.CreateScope();
@@ -595,6 +594,58 @@ public class ApiTests
 			{
 				((IDisposable)app).Dispose();
 			}
+		}
+	}
+
+	[Fact]
+	public async Task Bootstrap_con_admin_existente_reconcilia_roles_faltantes_sin_duplicar()
+	{
+		ApiFixture app = new ApiFixture();
+		try
+		{
+			await app.Seed();
+			using (IServiceScope scope = app.Services.CreateScope())
+			{
+				RoleManager<IdentityRole> roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+				// Rol histórico fuera del catálogo ofrecido: debe conservarse a través del bootstrap.
+				InicializadorIdentidad.ComprobarResultado(await roles.CreateAsync(new IdentityRole("planner")));
+				IdentityRole? operador = await roles.FindByNameAsync("operator");
+				Assert.NotNull(operador);
+				InicializadorIdentidad.ComprobarResultado(await roles.DeleteAsync(operador));
+			}
+			IConfigurationRoot configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+			{
+				["Bootstrap:CompanyId"] = app.Company.ToString(),
+				["Bootstrap:CompanyName"] = "First company",
+				["Bootstrap:AdminEmail"] = "admin@test.invalid",
+				["Bootstrap:AdminPassword"] = "Local-test-only!42"
+			}).Build();
+			await InicializadorIdentidad.EjecutarAsync(app.Services, configuration);
+			await InicializadorIdentidad.EjecutarAsync(app.Services, configuration);
+			using (IServiceScope scope = app.Services.CreateScope())
+			{
+				RoleManager<IdentityRole> roles = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+				UserManager<AppUser> users = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+				FoodTraceDbContext db = scope.ServiceProvider.GetRequiredService<FoodTraceDbContext>();
+				foreach (string role in Roles.Todos)
+				{
+					Assert.Equal(1, await db.Roles.CountAsync(x => x.Name == role));
+				}
+			Assert.True(await roles.RoleExistsAsync("planner"));
+			AppUser? admin = await users.FindByEmailAsync("admin@test.invalid");
+			Assert.NotNull(admin);
+			IList<string> rolesDeAdmin = await users.GetRolesAsync(admin);
+			// El borrado del rol operator en la preparación también elimina su membresía (cascade de Identity);
+			// el inicializador debe preservar las asignaciones existentes sin re-agregar la membresía perdida.
+			Assert.Single(rolesDeAdmin);
+			Assert.Contains("admin", rolesDeAdmin);
+				Assert.Equal(3, await db.Users.CountAsync());
+				Assert.Equal(2, await db.Empresas.CountAsync());
+			}
+		}
+		finally
+		{
+			((IDisposable)app).Dispose();
 		}
 	}
 }

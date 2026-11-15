@@ -25,7 +25,7 @@ public static class ConfiguracionFoodTrace
             entorno = argumentos[indice + 1];
         }
         var configuracion = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
+            .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile($"appsettings.{entorno}.json", optional: true);
         if (string.Equals(entorno, Environments.Development, StringComparison.OrdinalIgnoreCase))

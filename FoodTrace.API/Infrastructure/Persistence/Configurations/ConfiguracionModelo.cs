@@ -20,10 +20,12 @@ internal static class ConfiguracionModelo
         b.Entity<VersionReceta>().HasOne<UnidadMedida>().WithMany().HasForeignKey(x => x.UnidadRendimientoId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<NecesidadIngrediente>().Property(x => x.UnidadBaseId).HasMaxLength(32);
         b.Entity<DetallePedidoCompra>().Property(x => x.UnidadBaseId).HasMaxLength(32);
+        b.Entity<DetalleOrdenRecepcion>().Property(x => x.UnidadBaseId).HasMaxLength(32);
         ConfigurarEmpresa<Establecimiento>(b, context); ConfigurarEmpresa<Producto>(b, context); ConfigurarEmpresa<Proveedor>(b, context);
         ConfigurarEmpresa<PresentacionProveedor>(b, context); ConfigurarEmpresa<VersionReceta>(b, context); ConfigurarEmpresa<IngredienteReceta>(b, context);
         ConfigurarEmpresa<OrdenProduccion>(b, context); ConfigurarEmpresa<NecesidadIngrediente>(b, context); ConfigurarEmpresa<PedidoCompra>(b, context);
         ConfigurarEmpresa<DetallePedidoCompra>(b, context); ConfigurarEmpresa<AsignacionCompra>(b, context);
+        ConfigurarEmpresa<OrdenRecepcion>(b, context); ConfigurarEmpresa<DetalleOrdenRecepcion>(b, context);
         b.Entity<AppUser>().HasOne<Empresa>().WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<AppUser>().HasAlternateKey(x => new { x.EmpresaId, x.Id }).IsClustered(false);
         b.Entity<Producto>().HasOne<UnidadMedida>().WithMany().HasForeignKey(x => x.UnidadBaseId).OnDelete(DeleteBehavior.Restrict);
@@ -47,6 +49,8 @@ internal static class ConfiguracionModelo
         b.Entity<NecesidadIngrediente>().HasOne<UnidadMedida>().WithMany().HasForeignKey(x => x.UnidadBaseId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<PedidoCompra>().HasOne<Proveedor>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.ProveedorId })
             .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<PedidoCompra>().HasOne<Establecimiento>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.EstablecimientoId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         b.Entity<PedidoCompra>().HasMany(x => x.Detalles).WithOne().HasForeignKey(x => new { x.EmpresaId, x.PedidoCompraId })
             .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         b.Entity<DetallePedidoCompra>().HasOne<PresentacionProveedor>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.PresentacionProveedorId })
@@ -56,6 +60,22 @@ internal static class ConfiguracionModelo
             .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         b.Entity<AsignacionCompra>().HasOne<NecesidadIngrediente>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.NecesidadIngredienteId })
             .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrdenRecepcion>().HasOne<PedidoCompra>().WithOne().HasForeignKey<OrdenRecepcion>(x => new { x.EmpresaId, x.PedidoCompraId })
+            .HasPrincipalKey<PedidoCompra>(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrdenRecepcion>().HasIndex(x => new { x.EmpresaId, x.PedidoCompraId }).IsUnique();
+        b.Entity<OrdenRecepcion>().HasOne<Proveedor>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.ProveedorId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrdenRecepcion>().HasOne<Establecimiento>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.EstablecimientoId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrdenRecepcion>().HasOne<AppUser>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.CreadoPorId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<OrdenRecepcion>().Property(x => x.CreadoPorId).HasMaxLength(128);
+        b.Entity<OrdenRecepcion>().HasMany(x => x.Detalles).WithOne().HasForeignKey(x => new { x.EmpresaId, x.OrdenRecepcionId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        ReferenciaProducto<DetalleOrdenRecepcion>(b, nameof(DetalleOrdenRecepcion.ProductoId));
+        b.Entity<DetalleOrdenRecepcion>().HasOne<PresentacionProveedor>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.PresentacionProveedorId })
+            .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<DetalleOrdenRecepcion>().HasOne<UnidadMedida>().WithMany().HasForeignKey(x => x.UnidadBaseId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<OrdenProduccion>().HasOne<AppUser>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.CreadoPorId })
             .HasPrincipalKey(x => new { x.EmpresaId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         b.Entity<PedidoCompra>().HasOne<AppUser>().WithMany().HasForeignKey(x => new { x.EmpresaId, x.CreadoPorId })

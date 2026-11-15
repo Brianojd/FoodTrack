@@ -5,6 +5,7 @@ namespace FoodTrace.API.Domain.Entities;
 public sealed class PedidoCompra : EntidadEmpresa
 {
     public Guid ProveedorId { get; set; }
+    public Guid? EstablecimientoId { get; set; }
     public EstadoPedidoCompra Estado { get; set; }
     public string CreadoPorId { get; set; } = "";
     public DateTimeOffset FechaCreacion { get; set; }

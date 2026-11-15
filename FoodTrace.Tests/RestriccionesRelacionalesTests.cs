@@ -29,9 +29,9 @@ public class RestriccionesRelacionalesTests
 		try
 		{
 			IEntityType[] entidades = ((IInfrastructure<IServiceProvider>)(object)db).GetService<IDesignTimeModel>().Model.GetEntityTypes().ToArray();
-			Assert.Equal(new string[13]
+			Assert.Equal(new string[15]
 			{
-				"AsignacionesCompra", "DetallesPedidoCompra", "Empresas", "Establecimientos", "IngredientesReceta", "NecesidadesIngredientes", "OrdenesProduccion", "PedidosCompra", "PresentacionesProveedor", "Productos",
+				"AsignacionesCompra", "DetallesOrdenRecepcion", "DetallesPedidoCompra", "Empresas", "Establecimientos", "IngredientesReceta", "NecesidadesIngredientes", "OrdenesProduccion", "OrdenesRecepcion", "PedidosCompra", "PresentacionesProveedor", "Productos",
 				"Proveedores", "UnidadesMedida", "VersionesReceta"
 			}, (from x in entidades
 				// El modelo SQL registra todas estas entidades en tablas físicas.
@@ -84,8 +84,8 @@ public class RestriccionesRelacionalesTests
 		try
 		{
 			ICheckConstraint[] restricciones = ((IInfrastructure<IServiceProvider>)(object)db).GetService<IDesignTimeModel>().Model.GetEntityTypes().SelectMany((IEntityType x) => x.GetCheckConstraints()).ToArray();
-            Assert.Equal(18, restricciones.Length);
-            Assert.Equal(18, restricciones.Select((ICheckConstraint x) => x.Name).Distinct().Count());
+            Assert.Equal(23, restricciones.Length);
+            Assert.Equal(23, restricciones.Select((ICheckConstraint x) => x.Name).Distinct().Count());
             Assert.Contains(restricciones, x => x.Name == "CK_VersionesReceta_UnidadCantidadRendimiento");
             Assert.Contains(restricciones, x => x.Name == "CK_VersionesReceta_CantidadRendimiento");
             Assert.Contains(restricciones, x => x.Name == "CK_VersionesReceta_PorcionesRendimiento");
@@ -168,7 +168,8 @@ public class RestriccionesRelacionalesTests
 				Assert.Equal(2m, necesidad.GetProperty("amount").GetDecimal());
 				JsonElement pedido = await Crear("/api/purchases", new
 				{
-					supplierId = Id(proveedor)
+					supplierId = Id(proveedor),
+					establishmentId = Id(establecimiento)
 				});
 				await Crear($"/api/purchases/{Id(pedido)}/lines", new
 				{

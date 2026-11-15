@@ -6,6 +6,10 @@
         <MudCheckBox T="bool" @bind-Value="Modelo.Habilitado" For="() => Modelo.Habilitado" Label="Acceso habilitado a esta empresa" Disabled="Ocupado" />
         <ValidationMessage For="() => Modelo.Habilitado" />
         <SelectorRoles @bind-Roles="Modelo.Roles" Ocupado="Ocupado" />
+        @if (Modelo.RolesHistoricos.Length != 0)
+        {
+            <MudText Typo="Typo.caption">Roles históricos conservados (fuera del catálogo actual): @string.Join(", ", Modelo.RolesHistoricos)</MudText>
+        }
         <ValidationMessage For="() => Modelo.Roles" />
         <ValidationSummary />
         @if (!AccionesExternas)

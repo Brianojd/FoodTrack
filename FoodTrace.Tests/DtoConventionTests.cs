@@ -56,9 +56,8 @@ public class DtoConventionTests
 			"ProductoResultadoId", "Rendimiento", "Instrucciones", "Publicada", "Ingredientes", "EstablecimientoId", "VersionRecetaId", "CantidadPlanificada", "FechaPlanificada", "CreadoPorId",
 			"FechaCreacion", "Necesidades", "OrdenProduccionId", "CantidadNecesaria", "CantidadAsignada", "Estado", "EnviadoPorId", "FechaEnvio", "DecididoPorId", "FechaDecision",
 			"MotivoDecision", "Detalles", "PedidoCompraId", "PresentacionProveedorId", "NombrePresentacion", "CantidadBasePresentacion", "CantidadPresentaciones", "CantidadPedida", "NecesidadBruta", "Asignaciones",
-			"DetallePedidoCompraId", "NecesidadIngredienteId", "Liberada", "CantidadRendimiento", "UnidadRendimientoId", "PorcionesRendimiento", "PorPorciones",
-			"VistaParcial"
-		};
+		"DetallePedidoCompraId", "NecesidadIngredienteId", "Liberada", "CantidadRendimiento", "UnidadRendimientoId", "PorcionesRendimiento", "PorPorciones"
+	};
 		Assembly[] array = new Assembly[2]
 		{
 			typeof(MapeadorDtos).Assembly,
@@ -156,11 +155,6 @@ public class DtoConventionTests
                     esperado["yieldQuantity"] = populated ? JsonValue.Create(12.5m) : null;
                     esperado["yieldUnitId"] = populated ? JsonValue.Create("YieldUnitId") : null;
                     esperado["yieldPortions"] = populated ? JsonValue.Create(12.5m) : null;
-                }
-                if (type == typeof(FoodTrace.API.Domain.Entities.PedidoCompra))
-                {
-                    // Extensión aprobada: indicador aditivo de vista parcial para planificadores.
-                    esperado["partialView"] = false;
                 }
                 Assert.True(JsonNode.DeepEquals(esperado, JsonSerializer.SerializeToNode(dto, dto.GetType(), Options)), type.Name + " frozen response changed.");
 			}
@@ -552,7 +546,8 @@ public class DtoConventionTests
 		JsonElement supplier = await client.PostAsJsonAsync("/api/suppliers", new { name = "Synthetic" }).Result.Content.ReadFromJsonAsync<JsonElement>();
 		JsonElement product = await client.PostAsJsonAsync("/api/products", new { name = "Synthetic", baseUnitId = "kg" }).Result.Content.ReadFromJsonAsync<JsonElement>();
 		JsonElement pack = await client.PostAsJsonAsync("/api/packs", new { supplierId = supplier.GetProperty("id").GetGuid(), productId = product.GetProperty("id").GetGuid(), name = "1 kg", unitId = "kg", quantity = 1 }).Result.Content.ReadFromJsonAsync<JsonElement>();
-		JsonElement purchase = await client.PostAsJsonAsync("/api/purchases", new { supplierId = supplier.GetProperty("id").GetGuid() }).Result.Content.ReadFromJsonAsync<JsonElement>();
+		JsonElement site = await client.PostAsJsonAsync("/api/establishments", new { name = "Synthetic kitchen" }).Result.Content.ReadFromJsonAsync<JsonElement>();
+		JsonElement purchase = await client.PostAsJsonAsync("/api/purchases", new { supplierId = supplier.GetProperty("id").GetGuid(), establishmentId = site.GetProperty("id").GetGuid() }).Result.Content.ReadFromJsonAsync<JsonElement>();
 		using HttpResponseMessage createUser = await client.PostAsJsonAsync("/api/users", new
 		{
 			email = "synthetic@example.invalid",

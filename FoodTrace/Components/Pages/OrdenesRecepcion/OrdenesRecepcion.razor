@@ -1,0 +1,64 @@
+@page "/ordenes-recepcion"
+@page "/ordenes-recepcion/{Id:guid}"
+@inherits PaginaAdministrativa
+@inject IServicioCompras OrdenesApi
+
+<PageTitle>Órdenes de recepción · FoodTrace</PageTitle>
+<EncabezadoPagina Titulo="Órdenes de recepción" Descripcion="Cantidades esperadas persistidas al enviar compras. No representan stock, lotes ni recepciones físicas confirmadas." />
+@if (!Sesion.TieneRol("admin"))
+{
+    <MudAlert Severity="Severity.Warning" role="alert">Su cuenta no tiene permiso para consultar órdenes de recepción.</MudAlert>
+}
+else
+{
+    <MensajeError Mensaje="@Error" Reintentar="ActualizarAsync" Ocupado="Ocupado" />
+    @if (Ocupado && !cargada) { <EstadoCarga /> }
+    else if (Ocupado) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" aria-label="Actualizando órdenes" Class="mb-4" /> }
+    @if (!string.IsNullOrEmpty(Aviso)) { <MudAlert Severity="Severity.Success" role="status">@Aviso</MudAlert> }
+    <MudPaper Class="pa-6" Outlined="true" Elevation="0">
+        <MudButton OnClick="ActualizarAsync" Disabled="Ocupado" StartIcon="@Icons.Material.Filled.Refresh" Class="mb-4">Actualizar órdenes</MudButton>
+        @if (cargada)
+        {
+            @if (modelo.Ordenes.Count == 0 && string.IsNullOrEmpty(Error))
+            {
+                <EstadoVacio Mensaje="Todavía no hay órdenes de recepción persistidas." />
+            }
+            else if (modelo.Ordenes.Count != 0)
+            {
+                <MudTable Items="modelo.Ordenes" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0">
+                    <HeaderContent><MudTh>Orden</MudTh><MudTh>Compra</MudTh><MudTh>Proveedor</MudTh><MudTh>Destino</MudTh><MudTh>Creada</MudTh><MudTh>Estado</MudTh><MudTh>Acciones</MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Orden">@context.Id</MudTd>
+                        <MudTd DataLabel="Compra">@context.PedidoCompraId</MudTd>
+                        <MudTd DataLabel="Proveedor">@context.NombreProveedor</MudTd>
+                        <MudTd DataLabel="Destino">@context.NombreEstablecimiento</MudTd>
+                        <MudTd DataLabel="Creada">@context.FechaCreacion.ToString("dd/MM/yyyy HH:mm zzz")</MudTd>
+                        <MudTd DataLabel="Estado">@ModeloOrdenRecepcion.NombreEstado(context.Estado)</MudTd>
+                        <MudTd DataLabel="Acciones"><MudButton Disabled="Ocupado" OnClick="() => ConsultarAsync(context)" aria-label="@($"Consultar orden {context.Id}")">Consultar orden</MudButton></MudTd>
+                    </RowTemplate>
+                </MudTable>
+            }
+        }
+    </MudPaper>
+    @if (modelo.Seleccionada is { } orden)
+    {
+        <MudPaper Class="pa-6 mt-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h5" HtmlTag="h2">Orden @orden.Id</MudText>
+            <MudText>Compra: @orden.PedidoCompraId</MudText>
+            <MudText>Proveedor: @orden.NombreProveedor</MudText>
+            <MudText>Destino: @orden.NombreEstablecimiento</MudText>
+            <MudText>Creada: @orden.FechaCreacion.ToString("dd/MM/yyyy HH:mm zzz")</MudText>
+            <MudText>Estado: @ModeloOrdenRecepcion.NombreEstado(orden.Estado)</MudText>
+            <MudTable Items="orden.Detalles" Breakpoint="Breakpoint.Sm" Elevation="0" Class="mt-4">
+                <HeaderContent><MudTh>Producto</MudTh><MudTh>Presentación</MudTh><MudTh Class="text-right">Presentaciones</MudTh><MudTh Class="text-right">Contenido por presentación</MudTh><MudTh Class="text-right">Cantidad esperada</MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Producto">@context.NombreProducto</MudTd>
+                    <MudTd DataLabel="Presentación">@context.NombrePresentacion</MudTd>
+                    <MudTd DataLabel="Presentaciones" Class="text-right">@context.CantidadPresentaciones.ToString("G29")</MudTd>
+                    <MudTd DataLabel="Contenido por presentación" Class="text-right">@context.CantidadBasePresentacion.ToString("G29") @context.UnidadBaseId</MudTd>
+                    <MudTd DataLabel="Cantidad esperada" Class="text-right">@context.CantidadEsperada.ToString("G29") @context.UnidadBaseId</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+}

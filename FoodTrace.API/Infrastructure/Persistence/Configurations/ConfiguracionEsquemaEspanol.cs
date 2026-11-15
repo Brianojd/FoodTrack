@@ -36,7 +36,7 @@ internal static class ConfiguracionEsquemaEspanol
             (nameof(NecesidadIngrediente.UnidadBaseId), "UnidadBaseId"), (nameof(NecesidadIngrediente.CantidadNecesaria), "CantidadNecesaria"),
             (nameof(NecesidadIngrediente.CantidadAsignada), "CantidadAsignada"));
         Tabla<PedidoCompra>(modelo, "PedidosCompra",
-            (nameof(PedidoCompra.ProveedorId), "ProveedorId"), (nameof(PedidoCompra.Estado), "Estado"),
+            (nameof(PedidoCompra.ProveedorId), "ProveedorId"), (nameof(PedidoCompra.EstablecimientoId), "EstablecimientoId"), (nameof(PedidoCompra.Estado), "Estado"),
             (nameof(PedidoCompra.CreadoPorId), "CreadoPorId"), (nameof(PedidoCompra.FechaCreacion), "FechaCreacion"),
             (nameof(PedidoCompra.EnviadoPorId), "EnviadoPorId"), (nameof(PedidoCompra.FechaEnvio), "FechaEnvio"),
             (nameof(PedidoCompra.DecididoPorId), "DecididoPorId"), (nameof(PedidoCompra.FechaDecision), "FechaDecision"),
@@ -50,6 +50,17 @@ internal static class ConfiguracionEsquemaEspanol
         Tabla<AsignacionCompra>(modelo, "AsignacionesCompra",
             (nameof(AsignacionCompra.DetallePedidoCompraId), "DetallePedidoCompraId"), (nameof(AsignacionCompra.NecesidadIngredienteId), "NecesidadIngredienteId"),
             (nameof(AsignacionCompra.CantidadAsignada), "CantidadAsignada"), (nameof(AsignacionCompra.Liberada), "Liberada"));
+        Tabla<OrdenRecepcion>(modelo, "OrdenesRecepcion",
+            (nameof(OrdenRecepcion.PedidoCompraId), "PedidoCompraId"), (nameof(OrdenRecepcion.ProveedorId), "ProveedorId"),
+            (nameof(OrdenRecepcion.NombreProveedor), "NombreProveedor"), (nameof(OrdenRecepcion.EstablecimientoId), "EstablecimientoId"),
+            (nameof(OrdenRecepcion.NombreEstablecimiento), "NombreEstablecimiento"), (nameof(OrdenRecepcion.FechaCreacion), "FechaCreacion"),
+            (nameof(OrdenRecepcion.CreadoPorId), "CreadoPorId"), (nameof(OrdenRecepcion.Estado), "Estado"));
+        Tabla<DetalleOrdenRecepcion>(modelo, "DetallesOrdenRecepcion",
+            (nameof(DetalleOrdenRecepcion.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(DetalleOrdenRecepcion.ProductoId), "ProductoId"),
+            (nameof(DetalleOrdenRecepcion.NombreProducto), "NombreProducto"), (nameof(DetalleOrdenRecepcion.PresentacionProveedorId), "PresentacionProveedorId"),
+            (nameof(DetalleOrdenRecepcion.NombrePresentacion), "NombrePresentacion"), (nameof(DetalleOrdenRecepcion.CantidadPresentaciones), "CantidadPresentaciones"),
+            (nameof(DetalleOrdenRecepcion.CantidadBasePresentacion), "CantidadBasePresentacion"), (nameof(DetalleOrdenRecepcion.CantidadEsperada), "CantidadEsperada"),
+            (nameof(DetalleOrdenRecepcion.UnidadBaseId), "UnidadBaseId"));
         foreach (var entidad in modelo.Model.GetEntityTypes().Where(x => typeof(EntidadEmpresa).IsAssignableFrom(x.ClrType)))
             entidad.FindProperty(nameof(EntidadEmpresa.EmpresaId))!.SetColumnName("EmpresaId");
     }

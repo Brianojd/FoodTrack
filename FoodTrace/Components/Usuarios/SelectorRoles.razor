@@ -11,7 +11,7 @@
     [Parameter] public EventCallback<string[]> RolesChanged { get; set; }
     [Parameter] public bool Ocupado { get; set; }
     private static readonly (string Codigo, string Nombre)[] RolesDisponibles =
-    [ ("admin", "Administrador"), ("planner", "Planificador"), ("buyer", "Comprador"), ("operator", "Operador") ];
+    [ ("admin", "Administrador"), ("operator", "Operador") ];
     private async Task CambiarAsync(string rol, bool valor)
     {
         if (Ocupado) return;

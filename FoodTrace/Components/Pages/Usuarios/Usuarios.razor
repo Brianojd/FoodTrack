@@ -50,7 +50,13 @@ else
     private Task SeleccionarAsync(UsuarioDto usuario)
     {
         if (usuarios is null || Ocupado || usuario.Id == Sesion.Identidad?.Id) return Task.CompletedTask;
-        var modelo = new FormularioMembresia { Id = usuario.Id, Correo = usuario.Correo, Habilitado = usuario.Habilitado, Roles = [.. usuario.Roles] };
+        var modelo = new FormularioMembresia
+        {
+            Id = usuario.Id, Correo = usuario.Correo, Habilitado = usuario.Habilitado,
+            // Solo los roles ofrecidos se editan; los históricos se muestran y se conservan en el servidor.
+            Roles = [.. usuario.Roles.Where(x => x is "admin" or "operator")],
+            RolesHistoricos = [.. usuario.Roles.Where(x => x is not ("admin" or "operator"))]
+        };
         var parametros = new DialogParameters<DialogoEditarMembresia> { { x => x.Modelo, modelo } };
         return AbrirEditorAsync<DialogoEditarMembresia, UsuarioDto>("Editar permisos de usuario", parametros, actualizado =>
         {

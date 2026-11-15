@@ -6,6 +6,10 @@
     <MudText Typo="Typo.overline" Class="px-4 mt-3">Operación</MudText>
     <MudNavLink Href="/produccion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Factory">Producción</MudNavLink>
     <MudNavLink Href="/compras" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ShoppingCart">Compras</MudNavLink>
+    @if (Sesion.TieneRol("admin"))
+    {
+        <MudNavLink Href="/ordenes-recepcion" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Assignment">Órdenes de recepción</MudNavLink>
+    }
     <MudText Typo="Typo.overline" Class="px-4 mt-3">Gestión</MudText>
     <MudNavLink Href="/catalogos" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory2">Catálogos</MudNavLink>
     @if (Sesion.TieneRol("admin"))

@@ -95,10 +95,10 @@ public abstract class PaginaAdministrativa : ComponentBase, IDisposable
         finally { confirmacionActiva = null; confirmando = false; }
     }
 
-    protected async Task AbrirEditorAsync<TDialogo, TResultado>(string titulo, DialogParameters<TDialogo> parametros, Action<TResultado> aplicar, MaxWidth ancho = MaxWidth.Small, string rolRequerido = "admin")
+    protected async Task AbrirEditorAsync<TDialogo, TResultado>(string titulo, DialogParameters<TDialogo> parametros, Action<TResultado> aplicar, MaxWidth ancho = MaxWidth.Small, string rolRequerido = "admin", string[]? rolesCualquiera = null)
         where TDialogo : FoodTrace.Components.Dialogos.DialogoEdicionBase
     {
-        if (Ocupado || !Vigente || !Sesion.TieneRol(rolRequerido)) return;
+        if (Ocupado || !Vigente || !(rolesCualquiera is { } roles ? roles.Any(Sesion.TieneRol) : Sesion.TieneRol(rolRequerido))) return;
         confirmando = true;
         var respuestaConfirmada = false;
         try

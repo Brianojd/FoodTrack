@@ -172,8 +172,8 @@ public sealed class RecipeSqlServerTests
         Assert.Equal(2m, legado.GetProperty("yieldQuantity").GetDecimal());
         Assert.Equal("kg", legado.GetProperty("yieldUnitId").GetString());
         Assert.Equal(JsonValueKind.Null, legado.GetProperty("yieldPortions").ValueKind);
-        await EnviarAsync(planificador, "/api/recipes", Entrada(new object[] { valida }));
-        foreach (var sinPermiso in new[] { administrador, comprador })
+        await EnviarAsync(administrador, "/api/recipes", Entrada(new object[] { valida }));
+        foreach (var sinPermiso in new[] { planificador, comprador })
         {
             using var prohibida = await sinPermiso.PostAsJsonAsync("/api/recipes", Entrada(new object[] { valida }));
             Assert.Equal(HttpStatusCode.Forbidden, prohibida.StatusCode);

@@ -14,7 +14,7 @@
     private Guid detalleId;
     private readonly ModeloDetallePedido modeloDetalle = new();
     private ModeloCantidadPresentaciones modelo = new();
-    protected override string RolRequerido => "buyer";
+    protected override string RolRequerido => "admin";
     protected override bool TieneCambios => modelo.Cantidad != modelo.CantidadOriginal;
     protected override void OnInitialized()
     {
