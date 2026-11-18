@@ -493,10 +493,156 @@ public sealed class ServicioFlujo(FoodTraceDbContext db, SesionEmpresa sesion) :
     }
 
     public async Task<List<OrdenRecepcionDto>> ObtenerOrdenesRecepcionAsync(CancellationToken cancelacion = default) =>
-        (await db.OrdenesRecepcion.AsNoTracking().Include(x => x.Detalles).ToListAsync(cancelacion))
+        (await db.OrdenesRecepcion.AsNoTracking().Where(x => x.Estado == EstadoOrdenRecepcion.Pendiente).Include(x => x.Detalles).ToListAsync(cancelacion))
             .OrderByDescending(x => x.FechaCreacion).ThenBy(x => x.Id).Select(MapeadorDtos.ADto).ToList();
 
     public async Task<OrdenRecepcionDto> ObtenerOrdenRecepcionAsync(Guid id, CancellationToken cancelacion = default) =>
         (await db.OrdenesRecepcion.AsNoTracking().Include(x => x.Detalles).SingleOrDefaultAsync(x => x.Id == id, cancelacion)
             ?? throw new KeyNotFoundException("Record not found in your company.")).ADto();
+
+    public async Task<RecepcionDto> ConfirmarRecepcionAsync(Guid id, ConfirmarRecepcionDto entrada, CancellationToken cancelacion = default)
+    {
+        await using var transaccion = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancelacion);
+        var orden = await db.OrdenesRecepcion.Include(x => x.Detalles).SingleOrDefaultAsync(x => x.Id == id, cancelacion)
+            ?? throw new KeyNotFoundException("Record not found in your company.");
+        var existente = await db.Recepciones.Include(x => x.Detalles)
+            .SingleOrDefaultAsync(x => x.OrdenRecepcionId == id, cancelacion);
+        if (existente is not null)
+        {
+            if (!EsMismaRecepcion(existente, entrada))
+                throw new ExcepcionConflicto("This receipt order was already confirmed with different data.");
+            await transaccion.CommitAsync(cancelacion);
+            return existente.ADto();
+        }
+
+        ComprobarRevision(orden, entrada.Revision);
+        if (orden.Estado != EstadoOrdenRecepcion.Pendiente)
+            throw new ExcepcionConflicto("This receipt order is already closed.");
+        if (entrada.Detalles is null)
+            throw ErrorCampo("Details", "Debe informar la cantidad recibida de cada detalle.");
+        if (entrada.Detalles.Count != orden.Detalles.Count || entrada.Detalles.Count == 0)
+            throw ErrorCampo("Details", "Debe informar exactamente una cantidad para cada detalle.");
+        if (entrada.Detalles.Any(x => x.DetalleOrdenRecepcionId == Guid.Empty) ||
+            entrada.Detalles.Select(x => x.DetalleOrdenRecepcionId).Distinct().Count() != entrada.Detalles.Count)
+            throw ErrorCampo("Details", "No repita detalles ni envíe identificadores vacíos.");
+
+        var porDetalle = entrada.Detalles.ToDictionary(x => x.DetalleOrdenRecepcionId);
+        if (orden.Detalles.Any(x => !porDetalle.ContainsKey(x.Id)))
+            throw ErrorCampo("Details", "Todos los detalles de la orden deben estar presentes.");
+        var observacion = string.IsNullOrWhiteSpace(entrada.Observacion) ? null : Texto(entrada.Observacion, 2000);
+        var recepcion = new Recepcion
+        {
+            EmpresaId = sesion.EmpresaId,
+            OrdenRecepcionId = orden.Id,
+            UsuarioReceptorId = sesion.UsuarioId,
+            FechaRecepcion = DateTimeOffset.UtcNow,
+            Observacion = observacion
+        };
+        foreach (var detalleOrden in orden.Detalles)
+        {
+            var recibida = porDetalle[detalleOrden.Id].CantidadPresentacionesRecibidas;
+            if (recibida < 0 || recibida > detalleOrden.CantidadPresentaciones || recibida != decimal.Truncate(recibida))
+                throw ErrorCampo($"Details[{detalleOrden.Id}].ReceivedPackCount", "La cantidad recibida debe ser un número entero entre cero y lo esperado.");
+            var faltantePresentaciones = detalleOrden.CantidadPresentaciones - recibida;
+            var cantidadRecibida = recibida * detalleOrden.CantidadBasePresentacion;
+            var detalle = new DetalleRecepcion
+            {
+                EmpresaId = sesion.EmpresaId,
+                RecepcionId = recepcion.Id,
+                DetalleOrdenRecepcionId = detalleOrden.Id,
+                OrdenRecepcionId = orden.Id,
+                ProductoId = detalleOrden.ProductoId,
+                NombreProducto = detalleOrden.NombreProducto,
+                PresentacionProveedorId = detalleOrden.PresentacionProveedorId,
+                NombrePresentacion = detalleOrden.NombrePresentacion,
+                CantidadPresentacionesEsperadas = detalleOrden.CantidadPresentaciones,
+                CantidadPresentacionesRecibidas = recibida,
+                CantidadPresentacionesFaltantes = faltantePresentaciones,
+                CantidadBasePresentacion = detalleOrden.CantidadBasePresentacion,
+                CantidadEsperada = detalleOrden.CantidadEsperada,
+                CantidadRecibida = cantidadRecibida,
+                CantidadFaltante = detalleOrden.CantidadEsperada - cantidadRecibida,
+                UnidadBaseId = detalleOrden.UnidadBaseId
+            };
+            recepcion.Detalles.Add(detalle);
+            if (cantidadRecibida > 0)
+                db.IngresosInventario.Add(new IngresoInventario
+                {
+                    EmpresaId = sesion.EmpresaId,
+                    RecepcionId = recepcion.Id,
+                    DetalleRecepcionId = detalle.Id,
+                    OrdenRecepcionId = orden.Id,
+                    ProductoId = detalle.ProductoId,
+                    EstablecimientoId = orden.EstablecimientoId,
+                    Cantidad = cantidadRecibida,
+                    UnidadBaseId = detalle.UnidadBaseId,
+                    FechaIngreso = recepcion.FechaRecepcion
+                });
+        }
+        orden.Estado = EstadoOrdenRecepcion.Cerrada;
+        db.Recepciones.Add(recepcion);
+        await db.SaveChangesAsync(cancelacion);
+        await transaccion.CommitAsync(cancelacion);
+        return recepcion.ADto();
+    }
+
+    public async Task<RecepcionDto> ObtenerRecepcionAsync(Guid id, CancellationToken cancelacion = default) =>
+        (await db.Recepciones.AsNoTracking().Include(x => x.Detalles)
+            .SingleOrDefaultAsync(x => x.OrdenRecepcionId == id, cancelacion)
+         ?? throw new KeyNotFoundException("Receipt not found in your company.")).ADto();
+
+    public async Task<DiferenciasRecepcionPaginadasDto> ObtenerDiferenciasRecepcionAsync(DiferenciasRecepcionQuery consulta, CancellationToken cancelacion = default)
+    {
+        var pagina = Math.Clamp(consulta.Page, 1, 100000);
+        var tamano = Math.Clamp(consulta.PageSize, 1, 200);
+        var query = from recepcion in db.Recepciones.AsNoTracking()
+                    join orden in db.OrdenesRecepcion.AsNoTracking()
+                        on new { recepcion.EmpresaId, recepcion.OrdenRecepcionId } equals new { orden.EmpresaId, OrdenRecepcionId = orden.Id }
+                    join detalle in db.DetallesRecepcion.AsNoTracking()
+                        on new { recepcion.EmpresaId, RecepcionId = recepcion.Id } equals new { detalle.EmpresaId, detalle.RecepcionId }
+                    select new { recepcion, orden, detalle };
+        if (consulta.SupplierId is { } proveedor) query = query.Where(x => x.orden.ProveedorId == proveedor);
+        if (consulta.EstablishmentId is { } establecimiento) query = query.Where(x => x.orden.EstablecimientoId == establecimiento);
+        if (consulta.From is { } desde) query = query.Where(x => x.recepcion.FechaRecepcion >= desde);
+        if (consulta.To is { } hasta) query = query.Where(x => x.recepcion.FechaRecepcion <= hasta);
+        var candidates = await query.ToListAsync(cancelacion);
+        var differences = candidates.Where(x => x.detalle.CantidadFaltante > 0);
+        var total = differences.Count();
+        var rows = differences.OrderByDescending(x => x.recepcion.FechaRecepcion).ThenBy(x => x.orden.Id)
+            .ThenBy(x => x.detalle.Id).Skip((pagina - 1) * tamano).Take(tamano)
+            .ToList();
+        var userIds = rows.Select(x => x.recepcion.UsuarioReceptorId).Distinct().ToArray();
+        var emails = await db.Users.AsNoTracking().Where(u => u.EmpresaId == sesion.EmpresaId && userIds.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.Email, cancelacion);
+        var items = rows.Select(x => new DiferenciaRecepcionDto
+        {
+            RecepcionId = x.recepcion.Id,
+            OrdenRecepcionId = x.orden.Id,
+            PedidoCompraId = x.orden.PedidoCompraId,
+            NombreProveedor = x.orden.NombreProveedor,
+            NombreEstablecimiento = x.orden.NombreEstablecimiento,
+            FechaRecepcion = x.recepcion.FechaRecepcion,
+            UsuarioReceptorId = x.recepcion.UsuarioReceptorId,
+            CorreoReceptor = emails.GetValueOrDefault(x.recepcion.UsuarioReceptorId),
+            NombreProducto = x.detalle.NombreProducto,
+            NombrePresentacion = x.detalle.NombrePresentacion,
+            CantidadEsperada = x.detalle.CantidadEsperada,
+            CantidadRecibida = x.detalle.CantidadRecibida,
+            CantidadFaltante = x.detalle.CantidadFaltante,
+            UnidadBaseId = x.detalle.UnidadBaseId,
+            Observacion = x.recepcion.Observacion
+        }).ToList();
+        return new DiferenciasRecepcionPaginadasDto { Items = items, TotalCount = total, Page = pagina, PageSize = tamano };
+    }
+
+    private static bool EsMismaRecepcion(Recepcion existente, ConfirmarRecepcionDto entrada)
+    {
+        var observacion = string.IsNullOrWhiteSpace(entrada.Observacion) ? null : entrada.Observacion.Trim();
+        if (!string.Equals(existente.Observacion, observacion, StringComparison.Ordinal)) return false;
+        if (entrada.Detalles is null || entrada.Detalles.Count != existente.Detalles.Count) return false;
+        var recibidas = entrada.Detalles.GroupBy(x => x.DetalleOrdenRecepcionId).ToDictionary(x => x.Key, x => x.ToList());
+        return recibidas.Count == existente.Detalles.Count && existente.Detalles.All(x =>
+            recibidas.TryGetValue(x.DetalleOrdenRecepcionId, out var filas) && filas.Count == 1 &&
+            filas[0].CantidadPresentacionesRecibidas == x.CantidadPresentacionesRecibidas);
+    }
 }

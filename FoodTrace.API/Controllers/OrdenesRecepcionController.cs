@@ -15,4 +15,12 @@ public sealed class OrdenesRecepcionController(IServicioFlujo flujo) : Controlle
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<OrdenRecepcionDto>> ObtenerOrdenAsync(Guid id, CancellationToken cancelacion = default) =>
         Ok(await flujo.ObtenerOrdenRecepcionAsync(id, cancelacion));
+
+    [HttpPost("{id:guid}/receipt")]
+    public async Task<ActionResult<RecepcionDto>> ConfirmarRecepcionAsync(Guid id, ConfirmarRecepcionDto entrada, CancellationToken cancelacion = default) =>
+        Ok(await flujo.ConfirmarRecepcionAsync(id, entrada, cancelacion));
+
+    [HttpGet("{id:guid}/receipt")]
+    public async Task<ActionResult<RecepcionDto>> ObtenerRecepcionAsync(Guid id, CancellationToken cancelacion = default) =>
+        Ok(await flujo.ObtenerRecepcionAsync(id, cancelacion));
 }

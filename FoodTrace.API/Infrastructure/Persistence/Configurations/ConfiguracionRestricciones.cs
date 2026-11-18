@@ -57,6 +57,21 @@ internal static class ConfiguracionRestricciones
             tabla.HasCheckConstraint("CK_DetallesOrdenRecepcion_CantidadEsperadaExacta",
                 $"{Decimal("CantidadEsperada")} = {Decimal("CantidadPresentaciones")} * {Decimal("CantidadBasePresentacion")}");
         });
+        modelo.Entity<DetalleRecepcion>().ToTable(tabla =>
+        {
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_RecibidasNoNegativas", NoNegativo("CantidadPresentacionesRecibidas"));
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_RecibidasEnteras",
+                $"{Decimal("CantidadPresentacionesRecibidas")} = CAST([CantidadPresentacionesRecibidas] AS bigint)");
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_RecibidasNoExcedenEsperado",
+                $"{Decimal("CantidadPresentacionesRecibidas")} <= {Decimal("CantidadPresentacionesEsperadas")}");
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_FaltantesExactos",
+                $"{Decimal("CantidadPresentacionesFaltantes")} = {Decimal("CantidadPresentacionesEsperadas")} - {Decimal("CantidadPresentacionesRecibidas")}");
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_RecibidoExacto",
+                $"{Decimal("CantidadRecibida")} = {Decimal("CantidadPresentacionesRecibidas")} * {Decimal("CantidadBasePresentacion")}");
+            tabla.HasCheckConstraint("CK_DetallesRecepcion_FaltanteExacto",
+                $"{Decimal("CantidadFaltante")} = {Decimal("CantidadEsperada")} - {Decimal("CantidadRecibida")}");
+        });
+        modelo.Entity<IngresoInventario>().ToTable(tabla => tabla.HasCheckConstraint("CK_IngresosInventario_CantidadPositiva", Positivo("Cantidad")));
     }
 
     private static string Decimal(string columna) => $"CAST([{columna}] AS decimal(18,6))";

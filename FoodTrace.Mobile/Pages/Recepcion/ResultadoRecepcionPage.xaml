@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Recepcion.ResultadoRecepcionPage"
+             Style="{DynamicResource PageStyle}"
+             Title="Resultado de recepción">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,24,20,24" Spacing="16">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Ingresar Mercadería" Style="{DynamicResource MenuHeaderStyle}" />
+                <Label Text="4. Vista de resultado de recepción" Style="{DynamicResource ConnectivityStyle}" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsVisible="False"
+                               IsRunning="False"
+                               Style="{DynamicResource LoginLoadingStyle}" />
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Recepción confirmada"
+                           Style="{DynamicResource SectionLabelStyle}"
+                           TextColor="{DynamicResource SuccessColor}" />
+                    <Label x:Name="SupplierLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label x:Name="OrderStatusLabel" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="ReceiverMetaLabel" Style="{DynamicResource ConnectivityStyle}" />
+                    <Label x:Name="ObservationLabel" Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Resultado aplicado" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="ImpactSummaryLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label Text="• La orden quedó en estado Cerrada y ya no aparece como pendiente." Style="{DynamicResource ConnectivityStyle}" />
+                    <Label Text="• Los faltantes registrados quedan disponibles para consulta administrativa." Style="{DynamicResource ConnectivityStyle}" />
+                    <Label Text="• El ingreso de inventario se registró únicamente por las cantidades recibidas mayores a 0." Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="Detalle final registrado"
+                   Style="{DynamicResource FieldLabelStyle}" />
+
+            <VerticalStackLayout x:Name="ResultLinesContainer" Spacing="12" />
+
+            <Button x:Name="ReloadReceiptButton"
+                    Text="Consultar recepción persistida"
+                    Clicked="RecargarRecepcionClicked"
+                    Style="{DynamicResource SecondaryButtonStyle}" />
+
+            <Button x:Name="BackToOrdersButton"
+                    Text="Volver al listado de órdenes pendientes"
+                    Clicked="VolverAOrdenesClicked"
+                    Style="{DynamicResource LoginPrimaryButtonStyle}" />
+
+            <Button x:Name="BackToMenuButton"
+                    Text="Volver al menú principal"
+                    Clicked="VolverAlMenuClicked"
+                    Style="{DynamicResource SecondaryButtonStyle}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

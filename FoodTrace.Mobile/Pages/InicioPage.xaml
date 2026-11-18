@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.InicioPage"
+             Style="{DynamicResource PageStyle}"
+             Title="Inicio">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,24,20,20" Spacing="0">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Grid.Column="0" Text="FoodTrace" Style="{DynamicResource MenuHeaderStyle}" VerticalOptions="Center" />
+                <Border Grid.Column="1" Style="{DynamicResource MenuSelectorStyle}" MinimumHeightRequest="44" Padding="14,0">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="UserSelectorTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="Auto,20" ColumnSpacing="8">
+                        <Label x:Name="UserIdentityLabel" Grid.Column="0" TextColor="{DynamicResource WhiteColor}" FontSize="13" VerticalOptions="Center" />
+                        <Image Grid.Column="1" Source="chevron_down_outline.svg" WidthRequest="18" HeightRequest="18" />
+                    </Grid>
+                </Border>
+            </Grid>
+            <BoxView HeightRequest="1" Margin="0,20,0,0" Color="{DynamicResource FieldBorderColor}" />
+            <Border x:Name="UserMenuPopup" IsVisible="False" Margin="0,8,0,0" Style="{DynamicResource MenuSelectorStyle}" Padding="12,4">
+                <Button Text="Cerrar sesión"
+                        ImageSource="logout_outline.svg"
+                        Clicked="LogoutClicked"
+                        Style="{DynamicResource MenuDropdownButtonStyle}"
+                        AutomationProperties.Name="Cerrar sesión" />
+            </Border>
+            <Label Text="Seleccione una tarea:" Margin="0,32,0,0" Style="{DynamicResource MenuTitleStyle}" />
+            <VerticalStackLayout Margin="0,24,0,0" Spacing="16">
+                <Button Text="Ingresar Mercadería" ImageSource="truck_outline.svg" Clicked="IngresarMercaderiaClicked" Style="{DynamicResource MenuPrimaryButtonStyle}" AutomationProperties.Name="Ingresar Mercadería" />
+                <Button Text="Verificar Lote" ImageSource="verify_outline.svg" Clicked="VerificarLoteClicked" Style="{DynamicResource MenuPrimaryButtonStyle}" AutomationProperties.Name="Verificar Lote" />
+                <Button Text="Dar de Baja" ImageSource="warning_outline.svg" Clicked="ComingSoonClicked" Style="{DynamicResource MenuPrimaryButtonStyle}" AutomationProperties.Name="Dar de Baja" />
+            </VerticalStackLayout>
+            <HorizontalStackLayout Margin="0,28,0,0" Spacing="8" HorizontalOptions="Center">
+                <Image Source="network_outline.svg" WidthRequest="18" HeightRequest="18" />
+                <Label x:Name="ConnectivityLabel" Style="{DynamicResource ConnectivityStyle}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

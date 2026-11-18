@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Recepcion.OrdenesRecepcionPage"
+             Style="{DynamicResource PageStyle}"
+             Title="Órdenes pendientes">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,24,20,24" Spacing="16">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Ingresar Mercadería" Style="{DynamicResource MenuHeaderStyle}" />
+                    <Label Text="Órdenes de recepción pendientes" Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+                <Button x:Name="RefreshButton"
+                        Grid.Column="1"
+                        Text="Actualizar"
+                        Clicked="ActualizarClicked"
+                        Style="{DynamicResource SecondaryButtonStyle}"
+                        HeightRequest="44"
+                        Padding="14,0" />
+            </Grid>
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsVisible="False"
+                               IsRunning="False"
+                               Style="{DynamicResource LoginLoadingStyle}" />
+
+            <Border x:Name="ErrorStateBorder"
+                    IsVisible="False"
+                    Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="No se pudieron consultar las órdenes"
+                           Style="{DynamicResource SectionLabelStyle}"
+                           TextColor="{DynamicResource ErrorColor}" />
+                    <Label x:Name="ErrorStateLabel"
+                           Style="{DynamicResource BodyTextStyle}" />
+                    <Button x:Name="RetryButton"
+                            Text="Reintentar consulta"
+                            Clicked="ActualizarClicked"
+                            Style="{DynamicResource SecondaryButtonStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border x:Name="EmptyStateBorder"
+                    IsVisible="False"
+                    Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="No hay órdenes pendientes"
+                           Style="{DynamicResource SectionLabelStyle}" />
+                    <Label Text="La empresa no registra órdenes de recepción pendientes en este momento."
+                           Style="{DynamicResource BodyTextStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout x:Name="OrdersContainer" Spacing="14" />
+
+            <Button x:Name="BackButton"
+                    Text="Volver al menú principal"
+                    Margin="0,8,0,0"
+                    Clicked="VolverClicked"
+                    Style="{DynamicResource SecondaryButtonStyle}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

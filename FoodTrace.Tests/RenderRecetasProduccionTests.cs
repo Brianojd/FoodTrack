@@ -328,14 +328,6 @@ public sealed class RenderRecetasProduccionTests
 				}
 			});
 		}
-		finally
-		{
-			if (renderer != null)
-			{
-				await renderer.DisposeAsync();
-			}
-		}
-	}
 
 	[Fact]
 	public async Task Una_carga_fallida_conserva_atomicamente_todos_los_datos_anteriores()

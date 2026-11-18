@@ -61,6 +61,40 @@ internal static class ConfiguracionEsquemaEspanol
             (nameof(DetalleOrdenRecepcion.NombrePresentacion), "NombrePresentacion"), (nameof(DetalleOrdenRecepcion.CantidadPresentaciones), "CantidadPresentaciones"),
             (nameof(DetalleOrdenRecepcion.CantidadBasePresentacion), "CantidadBasePresentacion"), (nameof(DetalleOrdenRecepcion.CantidadEsperada), "CantidadEsperada"),
             (nameof(DetalleOrdenRecepcion.UnidadBaseId), "UnidadBaseId"));
+        Tabla<Recepcion>(modelo, "Recepciones",
+            (nameof(Recepcion.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(Recepcion.UsuarioReceptorId), "UsuarioReceptorId"),
+            (nameof(Recepcion.FechaRecepcion), "FechaRecepcion"), (nameof(Recepcion.Observacion), "Observacion"));
+        Tabla<DetalleRecepcion>(modelo, "DetallesRecepcion",
+            (nameof(DetalleRecepcion.RecepcionId), "RecepcionId"), (nameof(DetalleRecepcion.DetalleOrdenRecepcionId), "DetalleOrdenRecepcionId"),
+            (nameof(DetalleRecepcion.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(DetalleRecepcion.ProductoId), "ProductoId"),
+            (nameof(DetalleRecepcion.NombreProducto), "NombreProducto"), (nameof(DetalleRecepcion.PresentacionProveedorId), "PresentacionProveedorId"),
+            (nameof(DetalleRecepcion.NombrePresentacion), "NombrePresentacion"), (nameof(DetalleRecepcion.CantidadPresentacionesEsperadas), "CantidadPresentacionesEsperadas"),
+            (nameof(DetalleRecepcion.CantidadPresentacionesRecibidas), "CantidadPresentacionesRecibidas"), (nameof(DetalleRecepcion.CantidadPresentacionesFaltantes), "CantidadPresentacionesFaltantes"),
+            (nameof(DetalleRecepcion.CantidadBasePresentacion), "CantidadBasePresentacion"), (nameof(DetalleRecepcion.CantidadEsperada), "CantidadEsperada"),
+            (nameof(DetalleRecepcion.CantidadRecibida), "CantidadRecibida"), (nameof(DetalleRecepcion.CantidadFaltante), "CantidadFaltante"),
+            (nameof(DetalleRecepcion.UnidadBaseId), "UnidadBaseId"));
+        Tabla<IngresoInventario>(modelo, "IngresosInventario",
+            (nameof(IngresoInventario.RecepcionId), "RecepcionId"), (nameof(IngresoInventario.DetalleRecepcionId), "DetalleRecepcionId"),
+            (nameof(IngresoInventario.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(IngresoInventario.ProductoId), "ProductoId"),
+            (nameof(IngresoInventario.EstablecimientoId), "EstablecimientoId"), (nameof(IngresoInventario.Cantidad), "Cantidad"),
+            (nameof(IngresoInventario.UnidadBaseId), "UnidadBaseId"), (nameof(IngresoInventario.FechaIngreso), "FechaIngreso"));
+        Tabla<Recepcion>(modelo, "Recepciones",
+            (nameof(Recepcion.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(Recepcion.UsuarioReceptorId), "UsuarioReceptorId"),
+            (nameof(Recepcion.FechaRecepcion), "FechaRecepcion"), (nameof(Recepcion.Observacion), "Observacion"));
+        Tabla<DetalleRecepcion>(modelo, "DetallesRecepcion",
+            (nameof(DetalleRecepcion.RecepcionId), "RecepcionId"), (nameof(DetalleRecepcion.DetalleOrdenRecepcionId), "DetalleOrdenRecepcionId"),
+            (nameof(DetalleRecepcion.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(DetalleRecepcion.ProductoId), "ProductoId"),
+            (nameof(DetalleRecepcion.NombreProducto), "NombreProducto"), (nameof(DetalleRecepcion.PresentacionProveedorId), "PresentacionProveedorId"),
+            (nameof(DetalleRecepcion.NombrePresentacion), "NombrePresentacion"), (nameof(DetalleRecepcion.CantidadPresentacionesEsperadas), "CantidadPresentacionesEsperadas"),
+            (nameof(DetalleRecepcion.CantidadPresentacionesRecibidas), "CantidadPresentacionesRecibidas"), (nameof(DetalleRecepcion.CantidadPresentacionesFaltantes), "CantidadPresentacionesFaltantes"),
+            (nameof(DetalleRecepcion.CantidadBasePresentacion), "CantidadBasePresentacion"), (nameof(DetalleRecepcion.CantidadEsperada), "CantidadEsperada"),
+            (nameof(DetalleRecepcion.CantidadRecibida), "CantidadRecibida"), (nameof(DetalleRecepcion.CantidadFaltante), "CantidadFaltante"),
+            (nameof(DetalleRecepcion.UnidadBaseId), "UnidadBaseId"));
+        Tabla<IngresoInventario>(modelo, "IngresosInventario",
+            (nameof(IngresoInventario.RecepcionId), "RecepcionId"), (nameof(IngresoInventario.DetalleRecepcionId), "DetalleRecepcionId"),
+            (nameof(IngresoInventario.OrdenRecepcionId), "OrdenRecepcionId"), (nameof(IngresoInventario.ProductoId), "ProductoId"),
+            (nameof(IngresoInventario.EstablecimientoId), "EstablecimientoId"), (nameof(IngresoInventario.Cantidad), "Cantidad"),
+            (nameof(IngresoInventario.UnidadBaseId), "UnidadBaseId"), (nameof(IngresoInventario.FechaIngreso), "FechaIngreso"));
         foreach (var entidad in modelo.Model.GetEntityTypes().Where(x => typeof(EntidadEmpresa).IsAssignableFrom(x.ClrType)))
             entidad.FindProperty(nameof(EntidadEmpresa.EmpresaId))!.SetColumnName("EmpresaId");
     }

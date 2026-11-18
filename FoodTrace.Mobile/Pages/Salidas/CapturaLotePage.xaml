@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Salidas.CapturaLotePage"
+             Title="Volver"
+             BackgroundColor="{DynamicResource Background}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24,40,24,24" Spacing="24" HorizontalOptions="Center" MaximumWidthRequest="400">
+
+            <Label Text="Control Salida a Cocina"
+                   FontSize="20" FontAttributes="Bold" TextColor="{DynamicResource TextPrimary}"
+                   HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+
+            <Label Text="Escanee el código de la caja o ingrese el número de lote manualmente para validar la rotación:"
+                   FontSize="14" TextColor="{DynamicResource TextSecondary}"
+                   HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+
+            <!-- Botón Escáner (Para el futuro láser / cámara) -->
+            <Button x:Name="EscanearButton"
+                    Text="📷 Escanear Código"
+                    BackgroundColor="{DynamicResource Primary}" TextColor="White"
+                    CornerRadius="8" HeightRequest="52" FontAttributes="Bold"
+                    Clicked="OnEscanearClicked" />
+
+            <Label Text="O BIEN"
+                   FontSize="12" TextColor="{DynamicResource TextSecondary}"
+                   HorizontalOptions="Center" Margin="0,10" />
+
+            <!-- Ingreso Manual (Prioridad para tus pruebas actuales) -->
+            <VerticalStackLayout Spacing="8">
+                <Label Text="Ingresar número de lote a mano:" FontSize="14" TextColor="{DynamicResource TextPrimary}" FontAttributes="Bold" />
+                <Border Stroke="{DynamicResource TextSecondary}" StrokeThickness="1" BackgroundColor="White" StrokeShape="RoundRectangle 8" Padding="12,0">
+                    <Entry x:Name="LoteManualEntry"
+                           Placeholder="Ej. LOTE-2024-X99"
+                           ClearButtonVisibility="WhileEditing"
+                           Keyboard="Text"
+                           ReturnType="Done"
+                           Completed="OnValidarManualClicked" />
+                </Border>
+            </VerticalStackLayout>
+
+            <Button x:Name="ValidarManualButton"
+                    Text="Validar Lote Manual"
+                    BackgroundColor="White" TextColor="{DynamicResource Primary}"
+                    BorderColor="{DynamicResource Primary}" BorderWidth="1.5"
+                    CornerRadius="8" HeightRequest="52" FontAttributes="Bold"
+                    Clicked="OnValidarManualClicked" />
+
+            <Border Stroke="#E0E0E0" BackgroundColor="#F9F9F9" StrokeShape="RoundRectangle 8" Padding="12,10">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Lotes disponibles para prueba FIFO:" FontSize="12" TextColor="{DynamicResource TextSecondary}" FontAttributes="Bold" />
+                    <Label x:Name="LotesDisponiblesLabel" FontSize="12" TextColor="{DynamicResource TextPrimary}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button x:Name="VolverInicioButton"
+                    Text="Volver al Menú"
+                    Style="{DynamicResource SecondaryButtonStyle}"
+                    Clicked="OnVolverMenuClicked" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Recepcion.DetalleOrdenPage"
+             Style="{DynamicResource PageStyle}"
+             Title="Detalle de orden">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,24,20,24" Spacing="16">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Ingresar Mercadería" Style="{DynamicResource MenuHeaderStyle}" />
+                <Label Text="2. Detalle con esperado y cantidad recibida por línea" Style="{DynamicResource ConnectivityStyle}" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsVisible="False"
+                               IsRunning="False"
+                               Style="{DynamicResource LoginLoadingStyle}" />
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label x:Name="SupplierLabel" Style="{DynamicResource SectionLabelStyle}" />
+                    <Label x:Name="OrderCodeLabel" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="DestinationLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label x:Name="MetaLabel" Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="Líneas de la orden (informar cantidad entera entre 0 y lo esperado)"
+                   Style="{DynamicResource FieldLabelStyle}" />
+
+            <VerticalStackLayout x:Name="LinesContainer" Spacing="14" />
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Observación de la recepción (opcional)" Style="{DynamicResource FieldLabelStyle}" />
+                    <Border Style="{DynamicResource FieldContainerStyle}">
+                        <Entry x:Name="ObservationEntry"
+                               Style="{DynamicResource EntryTextStyle}"
+                               Placeholder="Ej. Faltó una presentación en el transporte"
+                               MaxLength="2000" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Control rápido antes de confirmar" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="LiveSummaryLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label Text="Al confirmar se cerrará definitivamente la orden, se guardarán los faltantes y solo ingresará al inventario lo efectivamente recibido."
+                           Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button x:Name="ReviewSummaryButton"
+                    Text="Ver resumen de recibido y faltantes"
+                    Clicked="RevisarResumenClicked"
+                    Style="{DynamicResource LoginPrimaryButtonStyle}" />
+
+            <Button x:Name="BackButton"
+                    Text="Volver al listado"
+                    Clicked="VolverClicked"
+                    Style="{DynamicResource SecondaryButtonStyle}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

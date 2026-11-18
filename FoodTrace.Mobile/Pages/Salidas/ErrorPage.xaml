@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Salidas.ErrorPage"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="{DynamicResource Background}">
+
+    <VerticalStackLayout Padding="24" Spacing="16" HorizontalOptions="Center" VerticalOptions="Center" MaximumWidthRequest="400">
+
+        <Image Source="icon_error_large.png" HeightRequest="72" WidthRequest="72" HorizontalOptions="Center" Margin="0,0,0,16" />
+
+        <Label Text="Error"
+               FontSize="24" FontAttributes="Bold" TextColor="{DynamicResource TextPrimary}"
+               HorizontalOptions="Center" />
+
+        <!-- Mensaje de error inyectado desde el backend o la lógica FIFO -->
+        <Label Text="{Binding MensajeError, FallbackValue='Hay lotes más antiguos que deben usarse primero. Busque el LOTE-445.'}"
+               FontSize="16" TextColor="{DynamicResource Error, FallbackValue='#D32F2F'}"
+               HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="0,0,0,32" />
+
+        <Button Text="Reintentar"
+                BackgroundColor="{DynamicResource Primary}" TextColor="White"
+                CornerRadius="8" HeightRequest="52" FontAttributes="Bold"
+                Clicked="OnReintentarClicked" />
+
+    </VerticalStackLayout>
+</ContentPage>

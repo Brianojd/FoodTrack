@@ -27,4 +27,7 @@ public interface IServicioFlujo
     Task<PedidoCompraDto> GenerarOrdenRecepcionAsync(Guid id, RevisionDto entrada, CancellationToken cancelacion = default);
     Task<List<OrdenRecepcionDto>> ObtenerOrdenesRecepcionAsync(CancellationToken cancelacion = default);
     Task<OrdenRecepcionDto> ObtenerOrdenRecepcionAsync(Guid id, CancellationToken cancelacion = default);
+    Task<RecepcionDto> ConfirmarRecepcionAsync(Guid id, ConfirmarRecepcionDto entrada, CancellationToken cancelacion = default);
+    Task<RecepcionDto> ObtenerRecepcionAsync(Guid id, CancellationToken cancelacion = default);
+    Task<DiferenciasRecepcionPaginadasDto> ObtenerDiferenciasRecepcionAsync(DiferenciasRecepcionQuery consulta, CancellationToken cancelacion = default);
 }

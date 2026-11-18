@@ -81,4 +81,21 @@ public static class MapeadorDtos
         NombreEstablecimiento = entidad.NombreEstablecimiento, CreadoPorId = entidad.CreadoPorId, FechaCreacion = entidad.FechaCreacion, Estado = (int)entidad.Estado,
         Detalles = entidad.Detalles.Select(ADto).ToList()
     };
+    public static DetalleRecepcionDto ADto(this DetalleRecepcion entidad) => new()
+    {
+        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision,
+        DetalleOrdenRecepcionId = entidad.DetalleOrdenRecepcionId, ProductoId = entidad.ProductoId,
+        NombreProducto = entidad.NombreProducto, PresentacionProveedorId = entidad.PresentacionProveedorId,
+        NombrePresentacion = entidad.NombrePresentacion, CantidadPresentacionesEsperadas = entidad.CantidadPresentacionesEsperadas,
+        CantidadPresentacionesRecibidas = entidad.CantidadPresentacionesRecibidas, CantidadPresentacionesFaltantes = entidad.CantidadPresentacionesFaltantes,
+        CantidadBasePresentacion = entidad.CantidadBasePresentacion, CantidadEsperada = entidad.CantidadEsperada,
+        CantidadRecibida = entidad.CantidadRecibida, CantidadFaltante = entidad.CantidadFaltante, UnidadBaseId = entidad.UnidadBaseId
+    };
+    public static RecepcionDto ADto(this Recepcion entidad) => new()
+    {
+        Id = entidad.Id, EmpresaId = entidad.EmpresaId, Revision = entidad.Revision,
+        OrdenRecepcionId = entidad.OrdenRecepcionId, UsuarioReceptorId = entidad.UsuarioReceptorId,
+        FechaRecepcion = entidad.FechaRecepcion, Observacion = entidad.Observacion,
+        Detalles = entidad.Detalles.Select(ADto).ToList()
+    };
 }

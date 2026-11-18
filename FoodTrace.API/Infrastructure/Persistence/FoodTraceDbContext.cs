@@ -26,6 +26,9 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
     public DbSet<AsignacionCompra> AsignacionesCompra => Set<AsignacionCompra>();
     public DbSet<OrdenRecepcion> OrdenesRecepcion => Set<OrdenRecepcion>();
     public DbSet<DetalleOrdenRecepcion> DetallesOrdenRecepcion => Set<DetalleOrdenRecepcion>();
+    public DbSet<Recepcion> Recepciones => Set<Recepcion>();
+    public DbSet<DetalleRecepcion> DetallesRecepcion => Set<DetalleRecepcion>();
+    public DbSet<IngresoInventario> IngresosInventario => Set<IngresoInventario>();
 
     public Guid EmpresaActualId => sesion.EmpresaId;
 
@@ -159,13 +162,22 @@ public sealed class FoodTraceDbContext(DbContextOptions<FoodTraceDbContext> opci
                 }
             }
             if (entry.Entity is OrdenRecepcion && entry.State != EntityState.Added)
-                throw new ExcepcionRegla("Receipt order snapshots are immutable.");
+            {
+                if (entry.State == EntityState.Deleted || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not nameof(OrdenRecepcion.Estado) and not nameof(EntidadEmpresa.Revision)))
+                    throw new ExcepcionRegla("Receipt order snapshots are immutable; only its closing status may change.");
+            }
             if (entry.Entity is OrdenRecepcion orden && entry.State == EntityState.Added)
                 await ValidarNuevaOrdenAsync(orden);
             if (entry.Entity is DetalleOrdenRecepcion && entry.State != EntityState.Added)
                 throw new ExcepcionRegla("Receipt order detail snapshots are immutable.");
             if (entry.Entity is DetalleOrdenRecepcion detalle && entry.State == EntityState.Added)
                 await ValidarNuevoDetalleOrdenAsync(detalle);
+            if (entry.Entity is Recepcion && entry.State != EntityState.Added)
+                throw new ExcepcionRegla("Saved receipts are immutable.");
+            if (entry.Entity is DetalleRecepcion && entry.State != EntityState.Added)
+                throw new ExcepcionRegla("Saved receipt details are immutable.");
+            if (entry.Entity is IngresoInventario && entry.State != EntityState.Added)
+                throw new ExcepcionRegla("Inventory entries are immutable.");
             if (entry.Entity is AsignacionCompra allocation && entry.State != EntityState.Added)
             {
                 if (entry.State == EntityState.Deleted || entry.Properties.Any(x => x.IsModified && x.Metadata.Name is not nameof(AsignacionCompra.Liberada) and not nameof(EntidadEmpresa.Revision)))

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="FoodTrace.Mobile.Pages.Recepcion.ResumenRecepcionPage"
+             Style="{DynamicResource PageStyle}"
+             Title="Resumen de recepción">
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,24,20,24" Spacing="16">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Ingresar Mercadería" Style="{DynamicResource MenuHeaderStyle}" />
+                <Label Text="3. Resumen de recibido y faltantes" Style="{DynamicResource ConnectivityStyle}" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsVisible="False"
+                               IsRunning="False"
+                               Style="{DynamicResource LoginLoadingStyle}" />
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label x:Name="SupplierLabel" Style="{DynamicResource SectionLabelStyle}" />
+                    <Label x:Name="OrderCodeLabel" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="DestinationLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label x:Name="ObservationLabel" Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{DynamicResource PanelStyle}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Totales y reglas de confirmación" Style="{DynamicResource FieldLabelStyle}" />
+                    <Label x:Name="TotalsLabel" Style="{DynamicResource BodyTextStyle}" />
+                    <Label Text="• La orden se cerrará definitivamente, incluso si registra faltantes." Style="{DynamicResource ConnectivityStyle}" />
+                    <Label Text="• Se guardarán los faltantes (esperado menos recibido) para supervisión administrativa." Style="{DynamicResource ConnectivityStyle}" />
+                    <Label Text="• Ingresará al inventario únicamente lo recibido; las líneas en 0 no generan ingreso." Style="{DynamicResource ConnectivityStyle}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="Detalle de recibido y faltantes por línea"
+                   Style="{DynamicResource FieldLabelStyle}" />
+
+            <VerticalStackLayout x:Name="SummaryLinesContainer" Spacing="12" />
+
+            <Button x:Name="ConfirmButton"
+                    Text="Confirmar recepción"
+                    Clicked="ConfirmarClicked"
+                    Style="{DynamicResource LoginPrimaryButtonStyle}" />
+
+            <Button x:Name="EditButton"
+                    Text="Volver a editar cantidades"
+                    Clicked="EditarClicked"
+                    Style="{DynamicResource SecondaryButtonStyle}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

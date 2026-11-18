@@ -210,8 +210,6 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("EmpresaId", "Id");
-
                     b.HasIndex("UnidadBaseId");
 
                     b.HasIndex("EmpresaId", "OrdenRecepcionId");
@@ -314,6 +312,120 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.DetalleRecepcion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("CantidadBasePresentacion")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadBasePresentacion");
+
+                    b.Property<decimal>("CantidadEsperada")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadEsperada");
+
+                    b.Property<decimal>("CantidadFaltante")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadFaltante");
+
+                    b.Property<decimal>("CantidadPresentacionesEsperadas")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadPresentacionesEsperadas");
+
+                    b.Property<decimal>("CantidadPresentacionesFaltantes")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadPresentacionesFaltantes");
+
+                    b.Property<decimal>("CantidadPresentacionesRecibidas")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadPresentacionesRecibidas");
+
+                    b.Property<decimal>("CantidadRecibida")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("CantidadRecibida");
+
+                    b.Property<Guid>("DetalleOrdenRecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("DetalleOrdenRecepcionId");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EmpresaId");
+
+                    b.Property<string>("NombrePresentacion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("NombrePresentacion");
+
+                    b.Property<string>("NombreProducto")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("NombreProducto");
+
+                    b.Property<Guid>("OrdenRecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("OrdenRecepcionId");
+
+                    b.Property<Guid>("PresentacionProveedorId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("PresentacionProveedorId");
+
+                    b.Property<Guid>("ProductoId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("ProductoId");
+
+                    b.Property<Guid>("RecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("RecepcionId");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadBaseId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("UnidadBaseId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnidadBaseId");
+
+                    b.HasIndex("EmpresaId", "DetalleOrdenRecepcionId");
+
+                    b.HasIndex("EmpresaId", "ProductoId");
+
+                    b.HasIndex("EmpresaId", "RecepcionId", "DetalleOrdenRecepcionId")
+                        .IsUnique();
+
+                    b.ToTable("DetallesRecepcion", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DetallesRecepcion_FaltanteExacto", "CAST([CantidadFaltante] AS decimal(18,6)) = CAST([CantidadEsperada] AS decimal(18,6)) - CAST([CantidadRecibida] AS decimal(18,6))");
+
+                            t.HasCheckConstraint("CK_DetallesRecepcion_FaltantesExactos", "CAST([CantidadPresentacionesFaltantes] AS decimal(18,6)) = CAST([CantidadPresentacionesEsperadas] AS decimal(18,6)) - CAST([CantidadPresentacionesRecibidas] AS decimal(18,6))");
+
+                            t.HasCheckConstraint("CK_DetallesRecepcion_RecibidasEnteras", "CAST([CantidadPresentacionesRecibidas] AS decimal(18,6)) = CAST([CantidadPresentacionesRecibidas] AS bigint)");
+
+                            t.HasCheckConstraint("CK_DetallesRecepcion_RecibidasNoExcedenEsperado", "CAST([CantidadPresentacionesRecibidas] AS decimal(18,6)) <= CAST([CantidadPresentacionesEsperadas] AS decimal(18,6))");
+
+                            t.HasCheckConstraint("CK_DetallesRecepcion_RecibidasNoNegativas", "CAST([CantidadPresentacionesRecibidas] AS decimal(18,6)) >= 0");
+
+                            t.HasCheckConstraint("CK_DetallesRecepcion_RecibidoExacto", "CAST([CantidadRecibida] AS decimal(18,6)) = CAST([CantidadPresentacionesRecibidas] AS decimal(18,6)) * CAST([CantidadBasePresentacion] AS decimal(18,6))");
+                        });
+                });
+
             modelBuilder.Entity("FoodTrace.API.Domain.Entities.Empresa", b =>
                 {
                     b.Property<Guid>("Id")
@@ -402,6 +514,76 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                     b.ToTable("IngredientesReceta", null, t =>
                         {
                             t.HasCheckConstraint("CK_IngredientesReceta_CantidadPositiva", "CAST([Cantidad] AS decimal(18,6)) > 0");
+                        });
+                });
+
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.IngresoInventario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)")
+                        .HasColumnName("Cantidad");
+
+                    b.Property<Guid>("DetalleRecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("DetalleRecepcionId");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EmpresaId");
+
+                    b.Property<Guid>("EstablecimientoId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EstablecimientoId");
+
+                    b.Property<DateTimeOffset>("FechaIngreso")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("FechaIngreso");
+
+                    b.Property<Guid>("OrdenRecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("OrdenRecepcionId");
+
+                    b.Property<Guid>("ProductoId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("ProductoId");
+
+                    b.Property<Guid>("RecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("RecepcionId");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UnidadBaseId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("UnidadBaseId");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("EmpresaId", "Id");
+
+                    b.HasIndex("UnidadBaseId");
+
+                    b.HasIndex("EmpresaId", "DetalleRecepcionId")
+                        .IsUnique();
+
+                    b.HasIndex("EmpresaId", "EstablecimientoId");
+
+                    b.HasIndex("EmpresaId", "ProductoId");
+
+                    b.HasIndex("EmpresaId", "RecepcionId");
+
+                    b.ToTable("IngresosInventario", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_IngresosInventario_CantidadPositiva", "CAST([Cantidad] AS decimal(18,6)) > 0");
                         });
                 });
 
@@ -771,6 +953,49 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Proveedores", (string)null);
+                });
+
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.Recepcion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("EmpresaId");
+
+                    b.Property<DateTimeOffset>("FechaRecepcion")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("FechaRecepcion");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnName("Observacion");
+
+                    b.Property<Guid>("OrdenRecepcionId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("OrdenRecepcionId");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UsuarioReceptorId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .HasColumnName("UsuarioReceptorId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId", "OrdenRecepcionId")
+                        .IsUnique();
+
+                    b.HasIndex("EmpresaId", "UsuarioReceptorId");
+
+                    b.ToTable("Recepciones", (string)null);
                 });
 
             modelBuilder.Entity("FoodTrace.API.Domain.Entities.UnidadMedida", b =>
@@ -1161,6 +1386,42 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.DetalleRecepcion", b =>
+                {
+                    b.HasOne("FoodTrace.API.Domain.Entities.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.UnidadMedida", null)
+                        .WithMany()
+                        .HasForeignKey("UnidadBaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.DetalleOrdenRecepcion", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "DetalleOrdenRecepcionId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.Producto", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "ProductoId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.Recepcion", null)
+                        .WithMany("Detalles")
+                        .HasForeignKey("EmpresaId", "RecepcionId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FoodTrace.API.Domain.Entities.Establecimiento", b =>
                 {
                     b.HasOne("FoodTrace.API.Domain.Entities.Empresa", null)
@@ -1194,6 +1455,49 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                     b.HasOne("FoodTrace.API.Domain.Entities.VersionReceta", null)
                         .WithMany("Ingredientes")
                         .HasForeignKey("EmpresaId", "VersionRecetaId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.IngresoInventario", b =>
+                {
+                    b.HasOne("FoodTrace.API.Domain.Entities.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.UnidadMedida", null)
+                        .WithMany()
+                        .HasForeignKey("UnidadBaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.DetalleRecepcion", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "DetalleRecepcionId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.Establecimiento", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "EstablecimientoId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.Producto", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "ProductoId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.Recepcion", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "RecepcionId")
                         .HasPrincipalKey("EmpresaId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1388,6 +1692,29 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.Recepcion", b =>
+                {
+                    b.HasOne("FoodTrace.API.Domain.Entities.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.OrdenRecepcion", null)
+                        .WithOne()
+                        .HasForeignKey("FoodTrace.API.Domain.Entities.Recepcion", "EmpresaId", "OrdenRecepcionId")
+                        .HasPrincipalKey("FoodTrace.API.Domain.Entities.OrdenRecepcion", "EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FoodTrace.API.Domain.Entities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId", "UsuarioReceptorId")
+                        .HasPrincipalKey("EmpresaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FoodTrace.API.Domain.Entities.VersionReceta", b =>
                 {
                     b.HasOne("FoodTrace.API.Domain.Entities.Empresa", null)
@@ -1476,6 +1803,11 @@ namespace FoodTrace.API.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("FoodTrace.API.Domain.Entities.PedidoCompra", b =>
+                {
+                    b.Navigation("Detalles");
+                });
+
+            modelBuilder.Entity("FoodTrace.API.Domain.Entities.Recepcion", b =>
                 {
                     b.Navigation("Detalles");
                 });
